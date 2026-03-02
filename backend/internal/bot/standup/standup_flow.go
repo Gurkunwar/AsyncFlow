@@ -415,7 +415,7 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 	}
 
 	s.ChannelMessageSendComplex(standup.ReportChannelID, &discordgo.MessageSend{
-		// Content: fmt.Sprintf("🔔 Update from <@%s>", state.UserID),
+		Content: fmt.Sprintf("🔔 Update from <@%s>", state.UserID),
 		Embeds: []*discordgo.MessageEmbed{embed},
 	})
 }

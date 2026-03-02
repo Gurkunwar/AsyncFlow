@@ -43,7 +43,6 @@ func NewBotHandler(session *discordgo.Session,
 }
 
 func (h *BotHanlder) OnInteraction(session *discordgo.Session, intr *discordgo.InteractionCreate) {
-	// 1. Pass to Standup Domain first. If it returns true, it handled it!
 	if h.Standups.StandupRouter(session, intr) {
 		return
 	}
