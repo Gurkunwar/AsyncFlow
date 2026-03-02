@@ -26,9 +26,9 @@ func (s *StandupService) CreateStandup(input models.Standup) error {
 	return s.DB.Create(&input).Error
 }
 
-func (s *StandupService) GetUserManagedStandups(mangerID string) ([]models.Standup, error) {
+func (s *StandupService) GetUserManagedStandups(managerID string) ([]models.Standup, error) {
     var standups []models.Standup
-    err := s.DB.Where("manager_id = ?", mangerID).Find(&standups).Error
+    err := s.DB.Where("manager_id = ?", managerID).Find(&standups).Error
 
     return standups, err
 }

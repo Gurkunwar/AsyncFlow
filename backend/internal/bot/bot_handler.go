@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/Gurkunwar/dailybot/internal/bot/poll"
 	"github.com/Gurkunwar/dailybot/internal/bot/standup"
 	"github.com/Gurkunwar/dailybot/internal/services"
 	"github.com/bwmarrin/discordgo"
@@ -17,7 +18,8 @@ type BotHanlder struct {
 	DB             *gorm.DB
 	StandupService *services.StandupService
 	UserService    *services.UserService
-	Standups        *standup.StandupHandler
+	Standups       *standup.StandupHandler
+	Polls          *poll.PollHandler
 }
 
 func NewBotHandler(session *discordgo.Session,
@@ -26,11 +28,8 @@ func NewBotHandler(session *discordgo.Session,
 	standupService *services.StandupService,
 	userService *services.UserService) *BotHanlder {
 
-	standupHandler := &standup.StandupHandler{
-		DB:             db,
-		Redis:          redis,
-		StandupService: standupService,
-	}
+	standupHandler := standup.NewStandupHandler(db, redis, standupService)
+	pollhandler := poll.NewPollHandler(db, redis)
 
 	return &BotHanlder{
 		Session:        session,
@@ -38,12 +37,17 @@ func NewBotHandler(session *discordgo.Session,
 		DB:             db,
 		StandupService: standupService,
 		UserService:    userService,
-		Standups:        standupHandler,
+		Standups:       standupHandler,
+		Polls:          pollhandler,
 	}
 }
 
 func (h *BotHanlder) OnInteraction(session *discordgo.Session, intr *discordgo.InteractionCreate) {
 	if h.Standups.StandupRouter(session, intr) {
+		return
+	}
+
+	if h.Polls.PollRouter(session, intr) {
 		return
 	}
 
