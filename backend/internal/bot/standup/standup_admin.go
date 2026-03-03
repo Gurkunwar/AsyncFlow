@@ -1,7 +1,6 @@
 package standup
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"regexp"
@@ -9,75 +8,55 @@ import (
 
 	"github.com/Gurkunwar/dailybot/internal/bot/utils"
 	"github.com/Gurkunwar/dailybot/internal/models"
-	"github.com/Gurkunwar/dailybot/internal/store"
 	"github.com/bwmarrin/discordgo"
 )
 
 func (h *StandupHandler) handleCreateStandup(session *discordgo.Session, intr *discordgo.InteractionCreate) {
 	options := intr.ApplicationCommandData().Options
+	userID := intr.Member.User.ID
+	guildID := intr.GuildID
+
+	// 1. Parse the basic arguments
 	name := options[0].StringValue()
 	channelID := options[1].ChannelValue(session).ID
 	membersRaw := options[2].StringValue()
+
 	standupTime := "09:00"
 	if len(options) > 3 {
 		standupTime = options[3].StringValue()
 	}
 
-	tempState := models.StandupState{
-		UserID:  intr.Member.User.ID,
-		GuildID: intr.GuildID,
-		Answers: []string{name, channelID, membersRaw, standupTime},
+	// 2. Define the Default Agile Questions
+	defaultQuestions := []string{
+		"What did you accomplish yesterday?",
+		"What will you do today?",
+		"Are you stuck anywhere? (Blockers)",
 	}
 
-	store.SaveState(h.Redis, intr.Member.User.ID+"_create", tempState)
-	h.openSingleQuestionModal(session, intr, 1)
-}
-
-func (h *StandupHandler) finalizeCreateStandup(session *discordgo.Session, intr *discordgo.InteractionCreate) {
-	state, err := store.GetState(h.Redis, intr.Member.User.ID+"_create")
-	if err != nil || len(state.Answers) < 5 {
-		session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Content: "❌ Session expired or no questions added.",
-				Flags: discordgo.MessageFlagsEphemeral},
-		})
-		return
-	}
-
-	session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	})
-
-	name := state.Answers[0]
-	channelID := state.Answers[1]
-	membersRaw := state.Answers[2]
-	standupTime := state.Answers[3]
-	questions := state.Answers[4:]
-
+	// 3. Create the Database Record Instantly
 	standup := models.Standup{
 		Name:            name,
 		ReportChannelID: channelID,
-		GuildID:         intr.GuildID,
-		ManagerID:       intr.Member.User.ID,
+		GuildID:         guildID,
+		ManagerID:       userID,
 		Time:            standupTime,
-		Questions:       questions,
+		Questions:       defaultQuestions, // Inject default questions!
+		Days:            "Monday,Tuesday,Wednesday,Thursday,Friday",
 	}
 
-	var guild models.Guild
-	h.DB.Where("id = ?", intr.GuildID).FirstOrCreate(&guild, models.Guild{GuildID: intr.GuildID})
-
+	// Ensure Guild and Manager exist in DB
+	h.DB.FirstOrCreate(&models.Guild{}, models.Guild{GuildID: guildID})
 	var manager models.UserProfile
-	h.DB.Where("user_id = ?", intr.Member.User.ID).FirstOrCreate(&manager,
-		models.UserProfile{UserID: intr.Member.User.ID})
+	h.DB.FirstOrCreate(&manager, models.UserProfile{UserID: userID})
 
+	// Save Standup
 	if err := h.StandupService.CreateStandup(standup); err != nil {
-		session.FollowupMessageCreate(intr.Interaction, true, &discordgo.WebhookParams{
-			Content: "❌ Failed to create standup.",
-		})
+		utils.RespondWithMessage(session, intr, "❌ Failed to create standup.", true)
 		return
 	}
 
-	h.DB.Where("guild_id = ? AND name = ?", intr.GuildID, name).First(&standup)
+	// 4. Parse members and link them to the standup
+	h.DB.Where("guild_id = ? AND name = ?", guildID, name).First(&standup)
 	addedCount := 0
 
 	re := regexp.MustCompile(`<@!?(\d+)>`)
@@ -85,44 +64,39 @@ func (h *StandupHandler) finalizeCreateStandup(session *discordgo.Session, intr 
 
 	for _, match := range matches {
 		if len(match) > 1 {
-			userID := match[1]
-
+			targetUserID := match[1]
 			var user models.UserProfile
-			h.DB.FirstOrCreate(&user, models.UserProfile{UserID: userID})
+			h.DB.FirstOrCreate(&user, models.UserProfile{UserID: targetUserID})
 			h.DB.Model(&user).Association("Standups").Append(&standup)
 			addedCount++
 
+			// Ping them in DMs silently
 			go func(uID string, tz string) {
 				dmChannel, err := session.UserChannelCreate(uID)
 				if err == nil {
 					timeDisplay := utils.FormatLocalTime(standup.Time, tz)
-					welcomeMsg := fmt.Sprintf(
-						"👋 **You've been added to the '%s' Standup!**\n\n"+
-							"⏰ This standup is scheduled for %s\n\n"+
-							"You can now submit your daily reports for this team.\n"+
-							"Run `/start` here or in the server to begin.",
-						name, timeDisplay,
-					)
+					welcomeMsg := fmt.Sprintf("👋 **You've been added to the '%s' Standup!**\n\n⏰ Scheduled for: %s\nRun `/start` here or in the server to begin.",
+						name, timeDisplay)
 					session.ChannelMessageSend(dmChannel.ID, welcomeMsg)
 				}
-			}(userID, user.Timezone)
+			}(targetUserID, user.Timezone)
 		}
 	}
 
-	h.Redis.Del(context.Background(), "state:"+intr.Member.User.ID+"_create")
-
+	// 5. Send Success Message
 	timeDisplay := utils.FormatLocalTime(standup.Time, manager.Timezone)
+	successMsg := fmt.Sprintf("🎉 **Standup '%s' created successfully!**\n"+
+		"⏰ Scheduled for: **%s** on **Monday-Friday**\n"+
+		"👥 Added **%d** members.\n\n"+
+		"💡 *I have assigned the standard 3 Agile questions. Use `/edit-standup` to customize your questions or active days!*",
+		standup.Name, timeDisplay, addedCount)
 
-	contentStr := fmt.Sprintf("🎉 **Standup '%s' created successfully!**\n"+
-		"⏰ Scheduled for: %s on **Monday-Friday**\n"+
-		"👥 Added %d questions and %d members.\n\n"+
-		"*💡 Tip: Want to run this on weekends? Use the `/edit-standup` command to change the active days!*",
-		standup.Name, timeDisplay, len(standup.Questions), addedCount)
-	components := []discordgo.MessageComponent{}
-
-	session.InteractionResponseEdit(intr.Interaction, &discordgo.WebhookEdit{
-		Content:    &contentStr,
-		Components: &components,
+	session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: successMsg,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
 }
 

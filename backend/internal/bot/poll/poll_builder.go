@@ -100,14 +100,12 @@ func (h *PollHandler) HandlePollAudit(session *discordgo.Session, intr *discordg
 	options := intr.ApplicationCommandData().Options
 	pollID := options[0].IntValue()
 
-	// 1. Get the Poll from your local DB to find the ChannelID and MessageID
 	var poll models.Poll
 	if err := h.DB.First(&poll, pollID).Error; err != nil {
 		utils.RespondWithMessage(session, intr, "❌ Poll not found in your database. Please check the ID.", true)
 		return
 	}
 
-	// 2. Fetch the actual message from Discord
 	msg, err := session.ChannelMessage(poll.ChannelID, poll.MessageID)
 	if err != nil || msg.Poll == nil {
 		utils.RespondWithMessage(session, intr,
@@ -120,12 +118,8 @@ func (h *PollHandler) HandlePollAudit(session *discordgo.Session, intr *discordg
 	report.WriteString(fmt.Sprintf("📋 **Audit Report: %s**\n", msg.Poll.Question.Text))
 	report.WriteString(fmt.Sprintf("_Poll ID: %d | Live Data from Discord API_\n\n", poll.ID))
 
-	// 3. Loop through the Native Poll answers
 	for _, answer := range msg.Poll.Answers {
 		report.WriteString(fmt.Sprintf("**%s**\n", answer.Media.Text))
-
-		// Fetch voters directly from Discord API for this specific option
-		// We fetch up to 100 voters. The "" is for pagination (after a specific user ID).
 		voters, err := session.PollAnswerVoters(poll.ChannelID, poll.MessageID, answer.AnswerID)
 
 		if err != nil || len(voters) == 0 {
@@ -138,7 +132,6 @@ func (h *PollHandler) HandlePollAudit(session *discordgo.Session, intr *discordg
 		}
 	}
 
-	// 4. Send the report back to the admin privately
 	session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{

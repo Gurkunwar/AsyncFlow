@@ -52,19 +52,10 @@ func (h *StandupHandler) StandupRouter(session *discordgo.Session, intr *discord
 	case discordgo.InteractionMessageComponent:
 		customID := intr.MessageComponentData().CustomID
 
-		if strings.HasPrefix(customID, "add_next_q_") {
-			var nextQ int
-			fmt.Sscanf(customID, "add_next_q_%d", &nextQ)
-			h.openSingleQuestionModal(session, intr, nextQ)
-			return true
-
-		} else if strings.HasPrefix(customID, "skip_standup_") {
+		if strings.HasPrefix(customID, "skip_standup_") {
 			var standupID uint
 			fmt.Sscanf(customID, "skip_standup_%d", &standupID)
 			h.handleSkipStandup(session, intr, standupID)
-			return true
-		} else if customID == "finalize_create_standup" {
-			h.finalizeCreateStandup(session, intr)
 			return true
 
 		} else if strings.HasPrefix(customID, "open_standup_modal_") {
@@ -78,10 +69,6 @@ func (h *StandupHandler) StandupRouter(session *discordgo.Session, intr *discord
 			fmt.Sscanf(customID, "continue_standup_%d_%d", &standupID, &qIndex)
 			h.openSingleAnswerModal(session, intr, fmt.Sprintf("%d", standupID), qIndex)
 			return true
-
-		// } else if customID == "select_tz" {
-		// 	h.handleTimezoneSelection(session, intr)
-		// 	return true
 
 		} else if customID == "select_standup_join" {
 			h.handleStandupSelection(session, intr)
@@ -123,11 +110,7 @@ func (h *StandupHandler) StandupRouter(session *discordgo.Session, intr *discord
 	case discordgo.InteractionModalSubmit:
 		customID := intr.ModalSubmitData().CustomID
 
-		if strings.HasPrefix(customID, "create_q_modal_") {
-			h.handleCreateQuestionSubmit(session, intr, customID)
-			return true
-
-		} else if strings.HasPrefix(customID, "standup_answer_modal_") {
+		if strings.HasPrefix(customID, "standup_answer_modal_") {
 			var standupID uint
 			var qIndex int
 			fmt.Sscanf(customID, "standup_answer_modal_%d_%d", &standupID, &qIndex)
