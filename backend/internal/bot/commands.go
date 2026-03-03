@@ -274,4 +274,17 @@ var Commands = []*discordgo.ApplicationCommand{
             },
         },
     },
+	{
+        Name:                     "poll-list",
+        Description:              "📋 List all recent polls and their IDs (Admin Only).",
+        DefaultMemberPermissions: &adminPerms,
+		Options: []*discordgo.ApplicationCommandOption{
+            {
+                Type:        discordgo.ApplicationCommandOptionInteger,
+                Name:        "page",
+                Description: "Which page of history to view (Default: 1)",
+                Required:    false,
+            },
+        },
+    },
 }

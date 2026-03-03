@@ -86,3 +86,56 @@ func (h *PollHandler) HandlePollExport(session *discordgo.Session, intr *discord
         },
     })
 }
+
+func (h *PollHandler) handlePollList(session *discordgo.Session, intr *discordgo.InteractionCreate) {
+    if !utils.IsServerAdmin(intr) {
+        utils.RespondWithMessage(session, intr, "⛔ Admin only.", true)
+        return
+    }
+
+    page := 1
+    options := intr.ApplicationCommandData().Options
+    if len(options) > 0 {
+        page = int(options[0].IntValue())
+        if page < 1 {
+            page = 1
+        }
+    }
+
+    limit := 10
+    offset := (page - 1) * limit
+
+    var recentPolls []models.Poll
+    
+    h.DB.Where("guild_id = ?", intr.GuildID).
+        Order("id desc").
+        Limit(limit).
+        Offset(offset).
+        Find(&recentPolls)
+
+    if len(recentPolls) == 0 {
+        utils.RespondWithMessage(session, intr, fmt.Sprintf("📭 No polls found on page %d.", page), true)
+        return
+    }
+
+    var list strings.Builder
+    list.WriteString(fmt.Sprintf("📋 **Server Polls (Page %d)**\n\n", page))
+
+    for _, p := range recentPolls {
+        qText := p.Question
+        if len(qText) > 55 {
+            qText = qText[:52] + "..."
+        }
+        list.WriteString(fmt.Sprintf("**ID: %d** | <#%s>\n> %s\n\n", p.ID, p.ChannelID, qText))
+    }
+    
+    list.WriteString(fmt.Sprintf("*Use `/poll-list page: %d` to see older polls.*", page+1))
+
+    session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: list.String(),
+            Flags:   discordgo.MessageFlagsEphemeral,
+        },
+    })
+}

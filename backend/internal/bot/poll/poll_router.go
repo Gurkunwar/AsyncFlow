@@ -21,6 +21,8 @@ func (h *PollHandler) PollRouter(session *discordgo.Session, intr *discordgo.Int
 		case "poll-export":
 			h.HandlePollExport(session, intr)
 			return true
+		case "poll-list":
+			h.handlePollList(session, intr)
 		}
 	}
 
