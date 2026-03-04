@@ -1,12 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { dailyBotApi } from "./apiSlice";
+import { asyncFlowApi } from "./apiSlice";
 import authReducer from "./authSlice"
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
-    [dailyBotApi.reducerPath]: dailyBotApi.reducer,
+    [asyncFlowApi.reducerPath]: asyncFlowApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(dailyBotApi.middleware),
+    getDefaultMiddleware().concat(asyncFlowApi.middleware),
 });

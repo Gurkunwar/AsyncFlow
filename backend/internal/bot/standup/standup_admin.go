@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Gurkunwar/dailybot/internal/bot/utils"
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/bwmarrin/discordgo"
 )
 

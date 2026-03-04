@@ -41,7 +41,7 @@ export default function Sidebar() {
           className="h-14 flex items-center px-6 border-b border-[#1e1f22] shadow-sm font-bold text-lg 
         tracking-wide"
         >
-          <span className="mr-3 text-xl">🤖</span> DailyBot
+          <span className="mr-3 text-xl">🤖</span> AsyncFlow
         </div>
 
         <nav className="p-3 space-y-1 mt-2">

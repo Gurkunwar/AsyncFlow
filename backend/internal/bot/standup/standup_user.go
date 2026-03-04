@@ -5,9 +5,10 @@ import (
 	// "log"
 	"time"
 
-	"github.com/Gurkunwar/dailybot/internal/bot/utils"
-	"github.com/Gurkunwar/dailybot/internal/models"
-	// "github.com/Gurkunwar/dailybot/internal/store"
+	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
+	"github.com/Gurkunwar/asyncflow/internal/models"
+
+	// "github.com/Gurkunwar/asyncflow/internal/store"
 	"github.com/bwmarrin/discordgo"
 )
 

@@ -13,7 +13,7 @@ var Commands = []*discordgo.ApplicationCommand{
 	},
 	{
 		Name:        "help",
-		Description: "Show the DailyBot help menu",
+		Description: "Show the AsyncFlow help menu",
 	},
 	{
 		Name:        "delete-my-data",

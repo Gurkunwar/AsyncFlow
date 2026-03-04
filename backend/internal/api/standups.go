@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Gurkunwar/dailybot/internal/api/dtos"
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/api/dtos"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -136,40 +136,40 @@ func (s *Server) HandleUpdateStandup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleGetStandupHistory(w http.ResponseWriter, r *http.Request) {
-    standupID := r.URL.Query().Get("standup_id")
-    if standupID == "" {
-        http.Error(w, "Missing standup_id parameter", http.StatusBadRequest)
-        return
-    }
+	standupID := r.URL.Query().Get("standup_id")
+	if standupID == "" {
+		http.Error(w, "Missing standup_id parameter", http.StatusBadRequest)
+		return
+	}
 
-    var histories []models.StandupHistory
-    if err := s.DB.Where("standup_id = ?", standupID).
-        Order("created_at desc").
-        Limit(50).
-        Find(&histories).
-        Error; err != nil {
+	var histories []models.StandupHistory
+	if err := s.DB.Where("standup_id = ?", standupID).
+		Order("created_at desc").
+		Limit(50).
+		Find(&histories).
+		Error; err != nil {
 
-        http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
-        return
-    }
+		http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
+		return
+	}
 
-    var response []HistoryDTO
-    for _, h := range histories {
-        response = append(response, HistoryDTO{
-            ID:        h.ID,
-            UserID:    h.UserID,
-            Date:      h.Date,
-            Answers:   h.Answers,
-            CreatedAt: h.CreatedAt.Format("2006-01-02 15:04:05"),
-        })
-    }
+	var response []HistoryDTO
+	for _, h := range histories {
+		response = append(response, HistoryDTO{
+			ID:        h.ID,
+			UserID:    h.UserID,
+			Date:      h.Date,
+			Answers:   h.Answers,
+			CreatedAt: h.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
 
-    if response == nil {
-        response = []HistoryDTO{}
-    }
+	if response == nil {
+		response = []HistoryDTO{}
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(response)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) HandleAddStandupMember(w http.ResponseWriter, r *http.Request) {
@@ -263,28 +263,28 @@ func (s *Server) HandleGetStandup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request) {
-    managerID := r.Context().Value(UserIDKey).(string)
-    
-    var stats struct {
-        TotalTeams      int64 `json:"total_teams"`
-        TotalMembers    int64 `json:"total_members"`
-        RecentReports   int64 `json:"recent_reports"`
-    }
+	managerID := r.Context().Value(UserIDKey).(string)
 
-    s.DB.Model(&models.Standup{}).Where("manager_id = ?", managerID).Count(&stats.TotalTeams)
+	var stats struct {
+		TotalTeams    int64 `json:"total_teams"`
+		TotalMembers  int64 `json:"total_members"`
+		RecentReports int64 `json:"recent_reports"`
+	}
 
-    s.DB.Table("standup_participants").
-        Joins("JOIN standups ON standups.id = standup_participants.standup_id").
-        Where("standups.manager_id = ?", managerID).
-        Distinct("user_profile_user_id").
-        Count(&stats.TotalMembers)
+	s.DB.Model(&models.Standup{}).Where("manager_id = ?", managerID).Count(&stats.TotalTeams)
 
-    lastWeek := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
-    s.DB.Model(&models.StandupHistory{}).
-        Joins("JOIN standups ON standups.id = standup_histories.standup_id").
-        Where("standups.manager_id = ? AND standup_histories.date >= ?", managerID, lastWeek).
-        Count(&stats.RecentReports)
+	s.DB.Table("standup_participants").
+		Joins("JOIN standups ON standups.id = standup_participants.standup_id").
+		Where("standups.manager_id = ?", managerID).
+		Distinct("user_profile_user_id").
+		Count(&stats.TotalMembers)
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(stats)
+	lastWeek := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
+	s.DB.Model(&models.StandupHistory{}).
+		Joins("JOIN standups ON standups.id = standup_histories.standup_id").
+		Where("standups.manager_id = ? AND standup_histories.date >= ?", managerID, lastWeek).
+		Count(&stats.RecentReports)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }

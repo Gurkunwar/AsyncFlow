@@ -5,17 +5,17 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/redis/go-redis/v9"
 )
 
 func SaveState(rdb *redis.Client, userID string, state models.StandupState) {
 	data, _ := json.Marshal(state)
-	rdb.Set(context.Background(), "state:" + userID, data, 24*time.Hour)
+	rdb.Set(context.Background(), "state:"+userID, data, 24*time.Hour)
 }
 
 func GetState(rdb *redis.Client, userID string) (*models.StandupState, error) {
-	val, err := rdb.Get(context.Background(), "state:" + userID).Result()
+	val, err := rdb.Get(context.Background(), "state:"+userID).Result()
 	if err != nil {
 		return nil, err
 	}

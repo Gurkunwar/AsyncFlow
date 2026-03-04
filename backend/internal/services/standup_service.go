@@ -4,7 +4,7 @@ import (
 	"errors"
 	_ "time/tzdata"
 
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
 )
@@ -16,7 +16,7 @@ type StandupService struct {
 }
 
 func (s *StandupService) CreateStandup(input models.Standup) error {
-    if input.Name == "" {
+	if input.Name == "" {
 		return errors.New("standup name cannot be empty")
 	}
 	if len(input.Questions) == 0 {
@@ -27,8 +27,8 @@ func (s *StandupService) CreateStandup(input models.Standup) error {
 }
 
 func (s *StandupService) GetUserManagedStandups(managerID string) ([]models.Standup, error) {
-    var standups []models.Standup
-    err := s.DB.Where("manager_id = ?", managerID).Find(&standups).Error
+	var standups []models.Standup
+	err := s.DB.Where("manager_id = ?", managerID).Find(&standups).Error
 
-    return standups, err
+	return standups, err
 }

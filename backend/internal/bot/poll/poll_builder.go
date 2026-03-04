@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Gurkunwar/dailybot/internal/bot/utils"
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -80,15 +80,15 @@ func (h *PollHandler) handleCreateNativePoll(session *discordgo.Session, intr *d
 	}
 
 	receiptMessage := fmt.Sprintf("✅ Poll published! (Poll ID: `%d`)", pollModel.ID)
-    session.ChannelMessageSend(intr.ChannelID, receiptMessage)
+	session.ChannelMessageSend(intr.ChannelID, receiptMessage)
 
-    session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
-        Type: discordgo.InteractionResponseChannelMessageWithSource,
-        Data: &discordgo.InteractionResponseData{
-            Content: "Poll created successfully.",
-            Flags:   discordgo.MessageFlagsEphemeral,
-        },
-    })
+	session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Poll created successfully.",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
 }
 
 func (h *PollHandler) HandlePollAudit(session *discordgo.Session, intr *discordgo.InteractionCreate) {

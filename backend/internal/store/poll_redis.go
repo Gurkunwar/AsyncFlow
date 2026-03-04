@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -15,7 +15,7 @@ func SavePollDraft(rdb *redis.Client, userID string, state models.PollState) {
 }
 
 func GetPollDraft(rdb *redis.Client, userID string) (*models.PollState, error) {
-	val, err := rdb.Get(context.Background(), "poll_draft:" + userID).Result()
+	val, err := rdb.Get(context.Background(), "poll_draft:"+userID).Result()
 	if err != nil {
 		return nil, err
 	}

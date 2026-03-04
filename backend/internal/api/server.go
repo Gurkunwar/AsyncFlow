@@ -4,14 +4,14 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Gurkunwar/dailybot/internal/services"
+	"github.com/Gurkunwar/asyncflow/internal/services"
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
 )
 
 type Server struct {
-	DB *gorm.DB
-	Session *discordgo.Session
+	DB             *gorm.DB
+	Session        *discordgo.Session
 	StandupService *services.StandupService
 }
 
@@ -22,11 +22,11 @@ func NewServer(db *gorm.DB, session *discordgo.Session, standupService *services
 func (s *Server) Routes() {
 	http.HandleFunc("/api/auth/discord", HandleDiscordLogin(s.DB))
 	http.HandleFunc("/api/managed-standups", AuthMiddleware(s.HandleGetManagedStandups(s.Session)))
-	
-    http.HandleFunc("/api/user-guilds", AuthMiddleware(s.HandleGetUserGuilds))
-    http.HandleFunc("/api/guild-channels", AuthMiddleware(s.HandleGetGuildChannels))
+
+	http.HandleFunc("/api/user-guilds", AuthMiddleware(s.HandleGetUserGuilds))
+	http.HandleFunc("/api/guild-channels", AuthMiddleware(s.HandleGetGuildChannels))
 	http.HandleFunc("/api/guild-members", AuthMiddleware(s.HandleGetGuildMembers))
-	
+
 	http.HandleFunc("/api/standups/create", AuthMiddleware(s.HandleCreateStandup))
 	http.HandleFunc("/api/standups/update", AuthMiddleware(s.HandleUpdateStandup))
 	http.HandleFunc("/api/standups/add-member", AuthMiddleware(s.HandleAddStandupMember))
@@ -44,14 +44,14 @@ func (s *Server) Start(port string) {
 }
 
 func (s *Server) GetDiscordMetadata(guildID, channelID string) (string, string) {
-    gName := "Unknown Server"
-    if guild, err := s.Session.State.Guild(guildID); err == nil {
-        gName = guild.Name
-    }
+	gName := "Unknown Server"
+	if guild, err := s.Session.State.Guild(guildID); err == nil {
+		gName = guild.Name
+	}
 
-    cName := "unknown-channel"
-    if channel, err := s.Session.State.Channel(channelID); err == nil {
-        cName = channel.Name
-    }
-    return gName, cName
+	cName := "unknown-channel"
+	if channel, err := s.Session.State.Channel(channelID); err == nil {
+		cName = channel.Name
+	}
+	return gName, cName
 }

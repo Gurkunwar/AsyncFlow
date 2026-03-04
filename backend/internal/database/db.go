@@ -3,7 +3,7 @@ package database
 import (
 	"os"
 
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -21,7 +21,7 @@ func InitDB() (*gorm.DB, error) {
 		&models.UserProfile{},
 		&models.StandupHistory{},
 		&models.Standup{},
-		
+
 		&models.Poll{},
 		&models.PollOption{},
 		&models.PollVote{},

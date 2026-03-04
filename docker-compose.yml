@@ -1,11 +1,11 @@
 services:
   db:
     image: postgres:15-alpine
-    container_name: dailybot_db
+    container_name: asyncflow_db
     environment:
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=dailybot
+      - POSTGRES_DB=asyncflow
     ports:
       - "5432:5432"
     volumes:
@@ -13,9 +13,14 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: dailybot_redis
+    container_name: asyncflow_redis
     ports:
       - "6379:6379"
 
+# volumes:
+#   postgres_data:
+
 volumes:
   postgres_data:
+    external: true
+    name: dailybot_postgres_data

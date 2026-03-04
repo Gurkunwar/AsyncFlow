@@ -6,11 +6,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Gurkunwar/dailybot/internal/api"
-	"github.com/Gurkunwar/dailybot/internal/bot"
-	"github.com/Gurkunwar/dailybot/internal/database"
-	"github.com/Gurkunwar/dailybot/internal/services"
-	"github.com/Gurkunwar/dailybot/internal/store"
+	"github.com/Gurkunwar/asyncflow/internal/api"
+	"github.com/Gurkunwar/asyncflow/internal/bot"
+	"github.com/Gurkunwar/asyncflow/internal/database"
+	"github.com/Gurkunwar/asyncflow/internal/services"
+	"github.com/Gurkunwar/asyncflow/internal/store"
 	"github.com/joho/godotenv"
 )
 
@@ -54,13 +54,13 @@ func main() {
 
 	apiServer := api.NewServer(db, dg, standupSvc)
 	port := os.Getenv("PORT")
-    if port == "" {
-        port = "8080"
-    }
+	if port == "" {
+		port = "8080"
+	}
 
-    go apiServer.Start(":" + port)
+	go apiServer.Start(":" + port)
 
-	log.Println("DailyBot is live!")
+	log.Println("AsyncFlow is live!")
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-stop

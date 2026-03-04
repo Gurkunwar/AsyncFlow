@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -51,7 +51,7 @@ func (s *Server) HandleGetUserGuilds(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req, _ := http.NewRequest("GET", "https://discord.com/api/users/@me/guilds", nil)
-	req.Header.Set("Authorization", "Bearer " + user.DiscordToken)
+	req.Header.Set("Authorization", "Bearer "+user.DiscordToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -143,9 +143,9 @@ func (s *Server) HandleGetGuildMembers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		memberList = append(memberList, MemberDTO{
-			ID: m.User.ID,
+			ID:       m.User.ID,
 			Username: m.User.Username,
-			Avatar: avatarURL,
+			Avatar:   avatarURL,
 		})
 	}
 

@@ -23,7 +23,7 @@ export default function Navbar() {
     <nav className="flex items-center justify-between px-8 py-5 max-w-7xl mx-auto border-b border-[#313338]">
       <div className="flex items-center gap-3">
         <span className="text-2xl">🤖</span>
-        <span className="text-xl font-bold tracking-tight">DailyBot</span>
+        <span className="text-xl font-bold tracking-tight">AsyncFlow</span>
       </div>
 
       <div className="flex items-center gap-6">

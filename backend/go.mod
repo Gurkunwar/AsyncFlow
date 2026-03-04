@@ -1,4 +1,4 @@
-module github.com/Gurkunwar/dailybot
+module github.com/Gurkunwar/asyncflow
 
 go 1.25.0
 

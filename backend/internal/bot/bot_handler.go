@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/Gurkunwar/dailybot/internal/bot/poll"
-	"github.com/Gurkunwar/dailybot/internal/bot/standup"
-	"github.com/Gurkunwar/dailybot/internal/services"
+	"github.com/Gurkunwar/asyncflow/internal/bot/poll"
+	"github.com/Gurkunwar/asyncflow/internal/bot/standup"
+	"github.com/Gurkunwar/asyncflow/internal/services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"

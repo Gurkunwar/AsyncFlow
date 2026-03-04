@@ -28,7 +28,7 @@ export default function Login() {
           </span>
         </div>
 
-        <h1 className="text-3xl font-bold mb-3 tracking-tight">DailyBot</h1>
+        <h1 className="text-3xl font-bold mb-3 tracking-tight">AsyncFlow</h1>
         <p className="text-[#99AAB5] mb-10 text-sm leading-relaxed px-4">
           Automate your team's standups. Log in with Discord to access your
           dashboard.

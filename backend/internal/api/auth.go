@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
@@ -111,20 +111,20 @@ func HandleDiscordLogin(db *gorm.DB) http.HandlerFunc {
 }
 
 func (s *Server) HandleGetMe(w http.ResponseWriter, r *http.Request) {
-    userID := r.Context().Value(UserIDKey).(string)
+	userID := r.Context().Value(UserIDKey).(string)
 
-    var user models.UserProfile
-    if err := s.DB.Where("user_id = ?", userID).First(&user).Error; err != nil {
-        http.Error(w, "User not found", http.StatusNotFound)
-        return
-    }
+	var user models.UserProfile
+	if err := s.DB.Where("user_id = ?", userID).First(&user).Error; err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
 
-    userDTO := MemberDTO{
-        ID:       user.UserID,
-        Username: user.Username,
-        Avatar:   user.Avatar,
-    }
+	userDTO := MemberDTO{
+		ID:       user.UserID,
+		Username: user.Username,
+		Avatar:   user.Avatar,
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(userDTO)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userDTO)
 }

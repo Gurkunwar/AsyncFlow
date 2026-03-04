@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Gurkunwar/dailybot/internal/bot/utils"
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -142,13 +142,13 @@ func (h *StandupHandler) StandupRouter(session *discordgo.Session, intr *discord
 
 func (h *StandupHandler) handleAutocomplete(session *discordgo.Session, intr *discordgo.InteractionCreate) bool {
 	data := intr.ApplicationCommandData()
-	
-	if data.Name == "delete-standup" || 
-	data.Name == "add-member" || 
-	data.Name == "remove-member" || 
-	data.Name == "edit-standup" || 
-	data.Name == "standup-info" || 
-	data.Name == "history" {
+
+	if data.Name == "delete-standup" ||
+		data.Name == "add-member" ||
+		data.Name == "remove-member" ||
+		data.Name == "edit-standup" ||
+		data.Name == "standup-info" ||
+		data.Name == "history" {
 
 		choices := []*discordgo.ApplicationCommandOptionChoice{}
 		var typedValue string

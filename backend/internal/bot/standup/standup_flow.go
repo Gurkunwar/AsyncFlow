@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Gurkunwar/dailybot/internal/bot/utils"
-	"github.com/Gurkunwar/dailybot/internal/models"
-	"github.com/Gurkunwar/dailybot/internal/store"
+	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
+	"github.com/Gurkunwar/asyncflow/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/store"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -291,12 +291,12 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 	}
 
 	discordUser, err := s.User(state.UserID)
-    userName := state.UserID // Fallback to ID
-    avatarURL := ""
-    if err == nil {
-        userName = discordUser.Username
-        avatarURL = discordUser.AvatarURL("")
-    }
+	userName := state.UserID // Fallback to ID
+	avatarURL := ""
+	if err == nil {
+		userName = discordUser.Username
+		avatarURL = discordUser.AvatarURL("")
+	}
 
 	var userProfile models.UserProfile
 	h.DB.Where("user_id = ?", state.UserID).First(&userProfile)
@@ -330,19 +330,20 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 	}
 
 	embed := &discordgo.MessageEmbed{
-        Author: &discordgo.MessageEmbedAuthor{
-            Name:    fmt.Sprintf("%s's Standup", userName),
-            IconURL: avatarURL,
-        },
-        Title:       fmt.Sprintf("🚀 %s Update", standup.Name),
-        Description: fmt.Sprintf("Progress report from <@%s>", state.UserID),
-        Color:       0x5865F2,
-        Fields:      fields,
-        Timestamp:   time.Now().Format(time.RFC3339),
-    }
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    fmt.Sprintf("%s's Standup", userName),
+			IconURL: avatarURL,
+		},
+		Title:       fmt.Sprintf("🚀 %s Update", standup.Name),
+		Description: fmt.Sprintf("Progress report from **%s**", userName),
+		Color:       0x5865F2,
+		Fields:      fields,
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
 
 	s.ChannelMessageSendComplex(standup.ReportChannelID, &discordgo.MessageSend{
-		Embeds: []*discordgo.MessageEmbed{embed},
+		Content: fmt.Sprintf("<@%s>", state.UserID),
+		Embeds:  []*discordgo.MessageEmbed{embed},
 	})
 }
 
@@ -411,7 +412,7 @@ func (h *StandupHandler) handleStandupSelection(session *discordgo.Session, intr
 	h.DB.Model(&user).Association("Standups").Append(&standup)
 
 	session.ChannelMessageDelete(intr.ChannelID, intr.Message.ID)
-    utils.RespondWithMessage(session, intr, fmt.Sprintf("✅ You joined **%s**!", standup.Name), true)
+	utils.RespondWithMessage(session, intr, fmt.Sprintf("✅ You joined **%s**!", standup.Name), true)
 
 	h.InitiateStandup(session, userID, standup.GuildID, intr.ChannelID, standup.ID)
 }

@@ -23,7 +23,7 @@ export default function Home() {
         </h1>
 
         <p className="text-lg md:text-xl text-[#99AAB5] max-w-2xl mb-12 leading-relaxed">
-          DailyBot lives directly in your Discord server. Collect asynchronous
+          AsyncFlow lives directly in your Discord server. Collect asynchronous
           updates, track team progress, and view histories all from one
           beautiful dashboard.
         </p>

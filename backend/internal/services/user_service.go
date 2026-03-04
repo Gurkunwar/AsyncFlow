@@ -1,7 +1,7 @@
 package services
 
 import (
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"gorm.io/gorm"
 )
 

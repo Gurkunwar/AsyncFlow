@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Gurkunwar/dailybot/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 )
 
 func (s *StandupService) StartTimezoneWorker() {
@@ -62,10 +62,10 @@ func (s *StandupService) CheckAndTriggerStandups() {
 			if !strings.Contains(activeDays, currentDay) {
 				continue
 			}
-			
+
 			if userLocalTime.Hour() == targetHour && userLocalTime.Minute() == targetMinute {
 				today := userLocalTime.Format("2006-01-02")
-				
+
 				var history models.StandupHistory
 				result := s.DB.Where("user_id = ? AND standup_id = ? AND date = ?",
 					user.UserID, standup.ID, today).First(&history)
@@ -76,7 +76,7 @@ func (s *StandupService) CheckAndTriggerStandups() {
 					if err == nil {
 						s.Session.ChannelMessageSend(channel.ID,
 							fmt.Sprintf("🔔 **Hey!** It's time for your **%s** standup.", standup.Name))
-						
+
 						s.TriggerFunc(s.Session, user.UserID, standup.GuildID, "", standup.ID)
 					}
 				}
