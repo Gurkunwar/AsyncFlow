@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const dailyBotApi = createApi({
   reducerPath: "dailyBotApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${import.meta.env.VITE_API_BASE_URL}/api/`,
+    baseUrl: `${import.meta.env.VITE_API_BASE_URL}`,
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("token");
       if (token) {

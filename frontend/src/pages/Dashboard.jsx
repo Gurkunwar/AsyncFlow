@@ -22,7 +22,7 @@ export default function Dashboard() {
     const fetchTeams = async () => {
       try {
         const API_BASE = import.meta.env.VITE_API_BASE_URL;
-        const response = await fetch(`${API_BASE}/api/managed-standups`, {
+        const response = await fetch(`${API_BASE}/managed-standups`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
