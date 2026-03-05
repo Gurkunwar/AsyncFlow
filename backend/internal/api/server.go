@@ -23,6 +23,8 @@ func (s *Server) Routes() {
 	http.HandleFunc("/api/auth/discord", HandleDiscordLogin(s.DB))
 	http.HandleFunc("/api/managed-standups", AuthMiddleware(s.HandleGetManagedStandups(s.Session)))
 
+	http.HandleFunc("/api/dashboard/stats", AuthMiddleware(s.HandleGetDashboardStats))
+
 	http.HandleFunc("/api/user-guilds", AuthMiddleware(s.HandleGetUserGuilds))
 	http.HandleFunc("/api/guild-channels", AuthMiddleware(s.HandleGetGuildChannels))
 	http.HandleFunc("/api/guild-members", AuthMiddleware(s.HandleGetGuildMembers))

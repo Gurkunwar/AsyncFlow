@@ -115,7 +115,7 @@ export const {
   useGetGuildMembersQuery,
   useGetGuildChannelsQuery,
   useGetHistoryQuery,
-  useGetDashboardStats,
+  useGetDashboardStatsQuery,
   useCreateStandupMutation,
   useToggleMemberMutation,
   useUpdateStandupMutation,
