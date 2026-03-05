@@ -29,11 +29,25 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+const formatRelativeTime = (dateString) => {
+  const now = new Date();
+  const then = new Date(dateString);
+  const diffInSeconds = Math.floor((now - then) / 1000);
+
+  if (diffInSeconds < 60) return "just now";
+  const mins = Math.floor(diffInSeconds / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+};
+
 export default function Dashboard() {
   const userData = JSON.parse(localStorage.getItem("user") || "{}");
 
   const { data: stats, isLoading } = useGetDashboardStatsQuery(undefined, {
-    pollingInterval: 10000,
+    pollingInterval: 60000,
+    refetchOnFocus: true,
   });
 
   const lineChartData = useMemo(() => {
@@ -60,6 +74,28 @@ export default function Dashboard() {
       className={`animate-pulse bg-[#3f4147]/50 rounded-lg ${className}`}
     ></div>
   );
+  const getDiscordAvatarUrl = (avatarStr, userId) => {
+    // 1. If no custom avatar hash, use Discord's default avatar logic
+    if (!avatarStr || avatarStr === "0" || avatarStr === "") {
+      try {
+        // Fallback calculation if userId is missing or invalid
+        const id = userId ? BigInt(userId) : 0n;
+        const defaultIndex = Number((id >> 22n) % 6n);
+        return `https://cdn.discordapp.com/embed/avatars/${defaultIndex}.png`;
+      } catch (e) {
+        return `https://cdn.discordapp.com/embed/avatars/0.png`;
+      }
+    }
+
+    // 2. Custom avatar: Discord expects https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.png
+    // If your backend already sends "userId/hash", we just append .png
+    if (avatarStr.includes("/")) {
+      return `https://cdn.discordapp.com/avatars/${avatarStr}.png`;
+    }
+
+    // 3. Fallback: if backend only sends hash, we need the userId separately
+    return `https://cdn.discordapp.com/avatars/${userId}/${avatarStr}.png`;
+  };
 
   return (
     <div className="flex h-screen bg-[#313338] font-sans text-white overflow-hidden">
@@ -84,11 +120,7 @@ export default function Dashboard() {
 
             <div className="flex flex-row gap-4 overflow-x-auto pb-3 pt-1 snap-x scroll-smooth custom-scrollbar">
               {isLoading ? (
-                <>
-                  <Skeleton className="h-22 w-[320px] shrink-0 snap-start" />
-                  <Skeleton className="h-22 w-[320px] shrink-0 snap-start" />
-                  <Skeleton className="h-22 w-[320px] shrink-0 snap-start" />
-                </>
+                <>{/* Skeletons */}</>
               ) : todaysBlockers.length > 0 ? (
                 todaysBlockers.map((b) => (
                   <div
@@ -99,38 +131,34 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0 pr-2">
                         <img
-                          src={
-                            b.avatar.includes("/")
-                              ? `https://cdn.discordapp.com/avatars/${b.avatar}.png`
-                              : `https://cdn.discordapp.com/embed/avatars/${b.avatar}.png`
-                          }
+                          src={getDiscordAvatarUrl(b.avatar, b.user_id)}
                           alt="avatar"
-                          className="w-6 h-6 rounded-full border border-[#2b2d31] shrink-0"
+                          className="w-6 h-6 rounded-full border border-[#2b2d31] shrink-0 object-cover"
+                          onError={(e) => { e.target.src = "https://cdn.discordapp.com/embed/avatars/0.png"; }}
                         />
                         <span className="font-bold text-[#da373c] text-sm truncate">
                           {b.user}
                         </span>
                       </div>
-                      <span
-                        className="text-[9px] font-bold text-[#da373c] bg-[#da373c]/20 px-2 py-1 rounded 
-                      uppercase tracking-widest truncate shrink-0 max-w-20"
-                      >
+                      {/* ADDED: Relative Time Badge */}
+                      <span className="text-[9px] font-bold text-[#99AAB5] bg-[#1e1f22] px-1.5 py-0.5 rounded uppercase">
+                        {formatRelativeTime(b.created_at)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                       <p className="text-gray-300 text-sm line-clamp-2 leading-snug flex-1" title={b.task}>
+                        "{b.task}"
+                      </p>
+                      <span className="text-[9px] font-bold text-[#da373c] bg-[#da373c]/20 px-2 py-1 rounded 
+                      uppercase tracking-widest truncate shrink-0 max-w-20 ml-2">
                         {b.team}
                       </span>
                     </div>
-                    <p
-                      className="text-gray-300 text-sm line-clamp-2 leading-snug"
-                      title={b.task}
-                    >
-                      "{b.task}"
-                    </p>
                   </div>
                 ))
               ) : (
-                <div
-                  className="flex-1 flex items-center justify-center h-22 text-[#99AAB5] text-sm bg-[#2b2d31]/50 
-                rounded-xl border border-dashed border-[#3f4147] min-w-[320px]"
-                >
+                <div className="flex-1 flex items-center justify-center h-22 text-[#99AAB5] text-sm bg-[#2b2d31]/50 rounded-xl border border-dashed border-[#3f4147] min-w-[320px]">
                   No updates or blockers reported today.
                 </div>
               )}

@@ -22,43 +22,54 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 		Count(&stats.TotalMembers)
 
 	stats.WeeklyData = make([]int64, 7)
-	daysOfWeek := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
-
 	now := time.Now()
+	sevenDaysAgo := now.AddDate(0, 0, -7).Format("2006-01-02")
+
+	type result struct {
+		Date  string
+		Count int64
+	}
+	var dailyResults []result
+
+	s.DB.Table("standup_histories").
+		Select("date, count(*) as count").
+		Joins("JOIN standups ON standups.id = standup_histories.standup_id").
+		Where("standups.manager_id = ? AND standup_histories.date > ?", managerID, sevenDaysAgo).
+		Group("date").
+		Scan(&dailyResults)
+
 	busiestCount := int64(-1)
 	stats.BusiestDay = "N/A"
+	dateMap := make(map[string]int64)
+	for _, res := range dailyResults {
+		dateMap[res.Date] = res.Count
+	}
 
+	daysOfWeek := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
 	for i := 6; i >= 0; i-- {
-		targetDate := now.AddDate(0, 0, -i).Format("2006-01-02")
-		var dailyCount int64
+		d := now.AddDate(0, 0, -i)
+		dateStr := d.Format("2006-01-02")
+		count := dateMap[dateStr]
 
-		s.DB.Model(&models.StandupHistory{}).
-			Joins("JOIN standups ON standups.id = standup_histories.standup_id").
-			Where("standups.manager_id = ? AND standup_histories.date = ?", managerID, targetDate).
-			Count(&dailyCount)
+		index := 6 - i
+		stats.WeeklyData[index] = count
+		stats.RecentReports += count
 
-		arrayIndex := 6 - i
-		stats.WeeklyData[arrayIndex] = dailyCount
-		stats.RecentReports += dailyCount
-
-		if dailyCount > busiestCount {
-			busiestCount = dailyCount
-			stats.BusiestDay = daysOfWeek[now.AddDate(0, 0, -i).Weekday()]
+		if count > busiestCount {
+			busiestCount = count
+			stats.BusiestDay = daysOfWeek[d.Weekday()]
 		}
 	}
 
-	var standups []models.Standup
-	s.DB.Where("manager_id = ?", managerID).Find(&standups)
-	for _, st := range standups {
-		var teamCount int64
-		s.DB.Model(&models.StandupHistory{}).Where("standup_id = ?", st.ID).Count(&teamCount)
-		
-		stats.BreakdownData = append(stats.BreakdownData, dtos.TeamBreakdown{
-			TeamName: st.Name,
-			Count:    teamCount,
-		})
-	}
+	// 3. Responses per team (REPLACED LOOP WITH ONE AGGREGATE QUERY)
+	s.DB.Table("standup_histories").
+		Select("standups.name as team_name, count(standup_histories.id) as count").
+		Joins("JOIN standups ON standups.id = standup_histories.standup_id").
+		Where("standups.manager_id = ?", managerID).
+		Group("standups.name").
+		Scan(&stats.BreakdownData)
 
+	// 4. Latest Updates (REMOVED EXTERNAL NETWORK CALLS)
 	var recentHistories []models.StandupHistory
 	s.DB.Preload("Standup").
 		Joins("JOIN standups ON standups.id = standup_histories.standup_id").
@@ -68,11 +79,39 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 		Find(&recentHistories)
 
 	for _, h := range recentHistories {
-		avatar := "0" 
-		member, err := s.Session.GuildMember(h.Standup.GuildID, h.UserID)
-		if err == nil && member.User != nil {
-			if member.User.Avatar != "" {
-				avatar = member.User.ID + "/" + member.User.Avatar
+		userName := "User " + h.UserID[len(h.UserID)-4:]
+		avatar := "0"
+
+		// Step 1: Check Local DB First (0ms latency)
+		var profile models.UserProfile
+		err := s.DB.Where("user_id = ?", h.UserID).First(&profile).Error
+
+		if err == nil {
+			// Found in DB!
+			userName = profile.Username
+			avatar = profile.Avatar
+		} else {
+			// Step 2: Not in DB? Check Discord Cache or API
+			member, err := s.Session.State.Member(h.Standup.GuildID, h.UserID)
+			if err != nil {
+				// If not in cache, hit the network (Slow, but only happens once)
+				member, _ = s.Session.GuildMember(h.Standup.GuildID, h.UserID)
+			}
+
+			if member != nil && member.User != nil {
+				userName = member.User.Username
+				if member.User.Avatar != "" {
+					avatar = member.User.ID + "/" + member.User.Avatar
+				} else {
+					avatar = "0" 
+				}
+
+				// Step 3: SAVE to DB so it's 0ms next time (Upsert)
+				s.DB.Where(models.UserProfile{UserID: h.UserID}).
+					Assign(models.UserProfile{
+						Username: userName,
+						Avatar:   avatar,
+					}).FirstOrCreate(&models.UserProfile{})
 			}
 		}
 
@@ -81,17 +120,14 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 			taskText = h.Answers[0]
 		}
 
-		userName := h.UserID
-		if member != nil && member.User != nil {
-			userName = member.User.Username
-		}
-
 		stats.Blockers = append(stats.Blockers, dtos.BlockerDTO{
 			ID:     h.ID,
+			UserID: h.UserID,
 			User:   userName,
 			Avatar: avatar,
 			Team:   h.Standup.Name,
 			Task:   taskText,
+			CreatedAt: h.CreatedAt,
 		})
 	}
 

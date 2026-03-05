@@ -1,11 +1,15 @@
 package dtos
 
+import "time"
+
 type BlockerDTO struct {
 	ID     uint   `json:"id"`
+	UserID string `json:"user_id"`
 	User   string `json:"user"`
 	Avatar string `json:"avatar"`
 	Team   string `json:"team"`
 	Task   string `json:"task"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type TeamBreakdown struct {

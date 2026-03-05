@@ -83,7 +83,8 @@ export const asyncFlowApi = createApi({
     }),
 
     getManagedPolls: builder.query({
-      query: () => "managed-polls",
+      // query: () => "managed-polls",
+      query: (filterType = 'all') => `/managed-polls?filter=${filterType}`,
       providesTags: ["ManagedPolls"],
     }),
     getPollById: builder.query({

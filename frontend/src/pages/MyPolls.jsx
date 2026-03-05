@@ -8,9 +8,10 @@ export default function MyPolls() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedGuild, setSelectedGuild] = useState("All");
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
 
   // RTK Query handles all the loading, caching, and fetching automatically!
-  const { data: polls = [], isLoading } = useGetManagedPollsQuery();
+  const { data: polls = [], isLoading } = useGetManagedPollsQuery(showOnlyMine ? "me" : "all");
 
   // Extract unique guild names to populate the dropdown
   const uniqueGuilds = ["All", ...new Set(polls.map((p) => p.guild_name))];
@@ -33,14 +34,30 @@ export default function MyPolls() {
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-bold">Managed Polls</h2>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
+              {/* NEW: Created By Me Toggle */}
+              <div className="flex items-center gap-2 bg-[#1e1f22] p-1 rounded-lg border border-[#3f4147]">
+                <button 
+                  onClick={() => setShowOnlyMine(false)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${!showOnlyMine ? "bg-[#5865F2] text-white" : "text-[#99AAB5] hover:text-white"}`}
+                >
+                  All
+                </button>
+                <button 
+                  onClick={() => setShowOnlyMine(true)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${showOnlyMine ? "bg-[#5865F2] text-white" : "text-[#99AAB5] hover:text-white"}`}
+                >
+                  Created by me
+                </button>
+              </div>
+
+              {/* Existing Server Filter */}
               {polls.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-[#99AAB5]">Filter:</span>
                   <select
                     value={selectedGuild}
                     onChange={(e) => setSelectedGuild(e.target.value)}
-                    className="bg-[#1e1f22] text-sm text-white px-3 py-2 rounded-md outline-none border border-transparent focus:border-[#5865F2] cursor-pointer"
+                    className="bg-[#1e1f22] text-sm text-white px-3 py-2 rounded-md outline-none border border-[#3f4147] focus:border-[#5865F2] cursor-pointer"
                   >
                     {uniqueGuilds.map((guild) => (
                       <option key={guild} value={guild}>

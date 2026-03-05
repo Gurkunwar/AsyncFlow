@@ -7,13 +7,16 @@ export default function MyStandups() {
   const [standups, setStandups] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedGuild, setSelectedGuild] = useState("All");
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
+
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
 
   const fetchStandups = useCallback(async () => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${API_BASE}/managed-standups`, {
+      const filterParam = showOnlyMine ? "me" : "all";
+      const response = await fetch(`${API_BASE}/managed-standups?filter=${filterParam}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -23,7 +26,7 @@ export default function MyStandups() {
     } catch (error) {
       console.error("Failed to load teams:", error);
     }
-  }, [token]);
+  }, [token, showOnlyMine]);
 
   useEffect(() => {
     fetchStandups();
@@ -48,15 +51,28 @@ export default function MyStandups() {
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-bold">Managed Standups</h2>
             
-            {/* 4. Added the filter dropdown UI next to the button */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 bg-[#1e1f22] p-1 rounded-lg border border-[#3f4147]">
+                <button 
+                  onClick={() => setShowOnlyMine(false)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${!showOnlyMine ? "bg-[#5865F2] text-white" : "text-[#99AAB5] hover:text-white"}`}
+                >
+                  All
+                </button>
+                <button 
+                  onClick={() => setShowOnlyMine(true)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${showOnlyMine ? "bg-[#5865F2] text-white" : "text-[#99AAB5] hover:text-white"}`}
+                >
+                  Created by me
+                </button>
+              </div>
+
               {standups.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-[#99AAB5]">Filter:</span>
                   <select
                     value={selectedGuild}
                     onChange={(e) => setSelectedGuild(e.target.value)}
-                    className="bg-[#1e1f22] text-sm text-white px-3 py-2 rounded-md outline-none border border-transparent focus:border-[#5865F2] cursor-pointer"
+                    className="bg-[#1e1f22] text-sm text-white px-3 py-2 rounded-md outline-none border border-[#3f4147] focus:border-[#5865F2] cursor-pointer"
                   >
                     {uniqueGuilds.map((guild) => (
                       <option key={guild} value={guild}>

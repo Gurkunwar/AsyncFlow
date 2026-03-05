@@ -13,33 +13,65 @@ import (
 )
 
 func (s *Server) HandleGetManagedPolls(w http.ResponseWriter, r *http.Request) {
-	managerID := r.Context().Value(UserIDKey).(string)
+    managerID := r.Context().Value(UserIDKey).(string)
+    onlyMe := r.URL.Query().Get("filter") == "me"
 
-	var polls []models.Poll
-	if err := s.DB.Where("creator_id = ?", managerID).Order("id desc").Find(&polls).Error; err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
+    var allPolls []models.Poll
+    if err := s.DB.Order("id desc").Find(&allPolls).Error; err != nil {
+        http.Error(w, "Database error", http.StatusInternalServerError)
+        return
+    }
 
-	var response []dtos.PollDTO
-	for _, p := range polls {
-		gName, cName := s.GetDiscordMetadata(p.GuildID, p.ChannelID)
+    var response []dtos.PollDTO
+    for _, p := range allPolls {
+        isCreator := p.CreatorID == managerID
+        
+        if onlyMe && !isCreator {
+            continue
+        }
 
-		response = append(response, dtos.PollDTO{
-			ID:          p.ID,
-			Question:    p.Question,
-			GuildName:   gName,
-			ChannelName: cName,
-			IsActive:    p.IsActive,
-		})
-	}
+        isAdmin := false
+        if !isCreator {
+            member, err := s.Session.State.Member(p.GuildID, managerID)
+            if err != nil {
+                member, _ = s.Session.GuildMember(p.GuildID, managerID)
+            }
 
-	if response == nil {
-		response = []dtos.PollDTO{}
-	}
+            if member != nil {
+                guild, _ := s.Session.State.Guild(p.GuildID)
+                if guild == nil {
+                    guild, _ = s.Session.Guild(p.GuildID)
+                }
+                
+                if guild != nil && guild.OwnerID == managerID {
+                    isAdmin = true
+                } else {
+                    permissions, _ := s.Session.UserChannelPermissions(managerID, p.ChannelID)
+                    if permissions&discordgo.PermissionAdministrator != 0 || permissions&discordgo.PermissionManageServer != 0 {
+                        isAdmin = true
+                    }
+                }
+            }
+        }
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+        if isCreator || isAdmin {
+            gName, cName := s.GetDiscordMetadata(p.GuildID, p.ChannelID)
+            response = append(response, dtos.PollDTO{
+                ID:          p.ID,
+                Question:    p.Question,
+                GuildName:   gName,
+                ChannelName: cName,
+                IsActive:    p.IsActive,
+            })
+        }
+    }
+
+    if response == nil {
+        response = []dtos.PollDTO{}
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) HandleGetPoll(w http.ResponseWriter, r *http.Request) {
@@ -50,32 +82,25 @@ func (s *Server) HandleGetPoll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var poll models.Poll
-	// We ONLY preload the Options from the DB. We will get Votes live from Discord.
 	if err := s.DB.Preload("Options").First(&poll, pollID).Error; err != nil {
 		http.Error(w, "Poll not found", http.StatusNotFound)
 		return
 	}
 
-	// Fetch the live poll state directly from the Discord channel
 	msg, err := s.Session.ChannelMessage(poll.ChannelID, poll.MessageID)
 	if err == nil && msg.Poll != nil {
-		
-		// Create a quick lookup map to match Discord's answer text to our DB Option IDs
 		optMap := make(map[string]uint)
 		for _, o := range poll.Options {
 			optMap[o.Label] = o.ID
 		}
 
 		var liveVotes []models.PollVote
-		
-		// Loop through Discord's live answers
 		for _, answer := range msg.Poll.Answers {
 			optID, exists := optMap[answer.Media.Text]
 			if !exists {
 				continue
 			}
 
-			// Ask Discord exactly who voted for this specific answer
 			voters, _ := s.Session.PollAnswerVoters(poll.ChannelID, poll.MessageID, answer.AnswerID)
 			for _, voter := range voters {
 				liveVotes = append(liveVotes, models.PollVote{
@@ -86,7 +111,6 @@ func (s *Server) HandleGetPoll(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		
-		// Inject the live Discord votes into our response payload!
 		poll.Votes = liveVotes
 	}
 
@@ -104,7 +128,7 @@ func (s *Server) HandleCreateWebPoll(w http.ResponseWriter, r *http.Request) {
 		GuildID   string   `json:"guild_id"`
 		ChannelID string   `json:"channel_id"`
 		Question  string   `json:"question"`
-		Duration  int      `json:"duration"` // In hours (1, 4, 8, 24, 72, 168)
+		Duration  int      `json:"duration"`
 		Options   []string `json:"options"`
 	}
 
@@ -115,7 +139,6 @@ func (s *Server) HandleCreateWebPoll(w http.ResponseWriter, r *http.Request) {
 
 	managerID := r.Context().Value(UserIDKey).(string)
 
-	// 1. Prepare Native Discord Poll Answers
 	var pollAnswers []discordgo.PollAnswer
 	for _, optText := range payload.Options {
 		pollAnswers = append(pollAnswers, discordgo.PollAnswer{
@@ -125,7 +148,6 @@ func (s *Server) HandleCreateWebPoll(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// 2. Construct the Native Poll
 	nativePoll := &discordgo.Poll{
 		Question: discordgo.PollMedia{
 			Text: payload.Question,
@@ -135,7 +157,6 @@ func (s *Server) HandleCreateWebPoll(w http.ResponseWriter, r *http.Request) {
 		Duration:         payload.Duration,
 	}
 
-	// 3. Publish to Discord!
 	msg, err := s.Session.ChannelMessageSendComplex(payload.ChannelID, &discordgo.MessageSend{
 		Poll: nativePoll,
 	})
@@ -144,7 +165,6 @@ func (s *Server) HandleCreateWebPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Save to Database
 	pollModel := models.Poll{
 		GuildID:   payload.GuildID,
 		ChannelID: payload.ChannelID,
@@ -191,16 +211,13 @@ func (s *Server) HandleEndWebPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Tell Discord to expire the native poll immediately
 	endpoint := discordgo.EndpointChannel(poll.ChannelID) + "/polls/" + poll.MessageID + "/expire"
 	_, err := s.Session.RequestWithBucketID("POST", endpoint, map[string]interface{}{},
 		discordgo.EndpointChannelMessage(poll.ChannelID, ""))
 	if err != nil {
 		log.Printf("Failed to end poll on Discord: %v", err)
-		// We won't block the DB update if the Discord message was already deleted
 	}
 
-	// 2. Update our database
 	poll.IsActive = false
 	s.DB.Save(&poll)
 
@@ -223,20 +240,17 @@ func (s *Server) HandleExportWebPoll(w http.ResponseWriter, r *http.Request) {
 	managerID := r.Context().Value(UserIDKey).(string)
 
 	var poll models.Poll
-	// Verify the poll exists and belongs to this manager
 	if err := s.DB.Where("id = ? AND creator_id = ?", pollID, managerID).First(&poll).Error; err != nil {
 		http.Error(w, "Poll not found or unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Fetch live data directly from Discord
 	msg, err := s.Session.ChannelMessage(poll.ChannelID, poll.MessageID)
 	if err != nil || msg.Poll == nil {
 		http.Error(w, "Could not fetch live poll from Discord", http.StatusInternalServerError)
 		return
 	}
 
-	// Build the CSV string (Reusing your exact logic from poll_commands.go!)
 	var csvBuilder strings.Builder
 	csvBuilder.WriteString("Option,User ID,Username\n")
 
@@ -254,7 +268,6 @@ func (s *Server) HandleExportWebPoll(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Tell the browser to download this response as a CSV file
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=poll_%s_results.csv", pollID))
 	
