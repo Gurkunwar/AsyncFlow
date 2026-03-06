@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import TimePicker from "../../components/TimePicker";
+import TimePicker from "../../../components/TimePicker";
 
 const DAYS_OF_WEEK = [
   "Monday",

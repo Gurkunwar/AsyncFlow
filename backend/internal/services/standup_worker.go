@@ -13,7 +13,15 @@ func (s *StandupService) StartTimezoneWorker() {
 	ticker := time.NewTicker(1 * time.Minute)
 	go func() {
 		for range ticker.C {
-			s.CheckAndTriggerStandups()
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("🚨 CRITICAL: Standup worker panicked and recovered: %v", r)
+					}
+				}()
+
+				s.CheckAndTriggerStandups()
+			}()
 		}
 	}()
 }
@@ -26,7 +34,13 @@ func (s *StandupService) CheckAndTriggerStandups() {
 		return
 	}
 
+	tzCache := make(map[string]*time.Location)
+
 	for _, standup := range standups {
+		if len(standup.Participants) == 0 {
+            continue
+        }
+
 		timeStr := standup.Time
 		if timeStr == "" {
 			timeStr = "09:00"
@@ -50,11 +64,16 @@ func (s *StandupService) CheckAndTriggerStandups() {
 				tz = "UTC"
 			}
 
-			loc, err := time.LoadLocation(tz)
-			if err != nil {
-				log.Printf("⚠️ Warning: Unknown timezone '%s' for user %s. Falling back to UTC.", tz, user.UserID)
-				loc = time.UTC
-			}
+			loc, exists := tzCache[tz]
+            if !exists {
+                var err error
+                loc, err = time.LoadLocation(tz)
+                if err != nil {
+                    log.Printf("⚠️ Warning: Unknown timezone '%s' for user %s. Falling back to UTC.", tz, user.UserID)
+                    loc = time.UTC
+                }
+                tzCache[tz] = loc
+            }
 
 			userLocalTime := time.Now().In(loc)
 
@@ -72,6 +91,7 @@ func (s *StandupService) CheckAndTriggerStandups() {
 
 				if result.Error != nil {
 					log.Printf("🔔 Pinging %s for standup: %s", user.UserID, standup.Name)
+					
 					channel, err := s.Session.UserChannelCreate(user.UserID)
 					if err == nil {
 						s.Session.ChannelMessageSend(channel.ID,

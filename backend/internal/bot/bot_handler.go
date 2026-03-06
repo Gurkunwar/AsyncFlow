@@ -26,10 +26,11 @@ func NewBotHandler(session *discordgo.Session,
 	redis *redis.Client,
 	db *gorm.DB,
 	standupService *services.StandupService,
+	pollService *services.PollService,
 	userService *services.UserService) *BotHanlder {
 
 	standupHandler := standup.NewStandupHandler(db, redis, standupService)
-	pollhandler := poll.NewPollHandler(db, redis)
+	pollhandler := poll.NewPollHandler(db, redis, pollService)
 
 	return &BotHanlder{
 		Session:        session,

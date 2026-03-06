@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useGetHistoryQuery } from "../../store/apiSlice";
+import { useGetHistoryQuery } from "../../../store/apiSlice";
 
 export default function HistoryTab({ standup, guildMembers }) {
   const [selectedUser, setSelectedUser] = useState("ALL");

@@ -25,58 +25,32 @@ func (h *PollHandler) handleCreateNativePoll(session *discordgo.Session, intr *d
 		durationHours = int(opt.IntValue())
 	}
 
-	var pollAnswers []discordgo.PollAnswer
-
+	var strOptions []string
 	for i := 1; i <= 5; i++ {
 		optName := fmt.Sprintf("option_%d", i)
 		if opt, ok := optionMap[optName]; ok && opt.StringValue() != "" {
-			pollAnswers = append(pollAnswers, discordgo.PollAnswer{
-				Media: &discordgo.PollMedia{ // Pointer here!
-					Text: strings.TrimSpace(opt.StringValue()),
-				},
-			})
+			strOptions = append(strOptions, opt.StringValue())
 		}
 	}
 
-	nativePoll := &discordgo.Poll{
-		Question: discordgo.PollMedia{
-			Text: questionText,
-		},
-		Answers:          pollAnswers,
-		AllowMultiselect: false,
-		Duration:         durationHours,
-	}
-
-	msg, err := session.ChannelMessageSendComplex(intr.ChannelID, &discordgo.MessageSend{
-		Poll: nativePoll,
-	})
+	pollModel, err := h.Service.CreatePoll(
+		intr.GuildID,
+		intr.ChannelID,
+		userID,
+		questionText,
+		strOptions,
+		durationHours,
+	)
 
 	if err != nil {
 		session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "❌ Failed to publish native poll.",
+				Content: fmt.Sprintf("❌ Failed to publish native poll: %v", err),
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
 		return
-	}
-
-	pollModel := models.Poll{
-		GuildID:   intr.GuildID,
-		ChannelID: intr.ChannelID,
-		CreatorID: userID,
-		Question:  questionText,
-		MessageID: msg.ID,
-		IsActive:  true,
-	}
-	h.DB.Create(&pollModel)
-
-	for _, answer := range pollAnswers {
-		h.DB.Create(&models.PollOption{
-			PollID: pollModel.ID,
-			Label:  answer.Media.Text,
-		})
 	}
 
 	receiptMessage := fmt.Sprintf("✅ Poll published! (Poll ID: `%d`)", pollModel.ID)

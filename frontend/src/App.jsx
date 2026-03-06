@@ -1,15 +1,15 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-import Login from "./pages/Login";
-import AuthCallback from "./pages/AuthCallback";
-import Dashboard from "./pages/Dashboard";
-import Home from "./pages/Home";
+import Login from "./features/auth/Login";
+import AuthCallback from "./features/auth/AuthCallback";
+import Dashboard from "./features/dashboard/Dashboard";
+import Home from "./features/dashboard/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
-import MyStandups from "./pages/MyStandups";
-import ManageStandup from "./pages/ManageStandup";
-import MyPolls from "./pages/MyPolls";
-import ManagePoll from "./pages/ManagePoll";
+import MyStandups from "./features/standups/MyStandups";
+import ManageStandup from "./features/standups/ManageStandup";
+import MyPolls from "./features/polls/MyPolls";
+import ManagePoll from "./features/polls/ManagePoll";
 
 function App() {
   return (

@@ -13,10 +13,15 @@ type Server struct {
 	DB             *gorm.DB
 	Session        *discordgo.Session
 	StandupService *services.StandupService
+	PollService    *services.PollService
 }
 
-func NewServer(db *gorm.DB, session *discordgo.Session, standupService *services.StandupService) *Server {
-	return &Server{DB: db, Session: session, StandupService: standupService}
+func NewServer(db *gorm.DB,
+	session *discordgo.Session,
+	standupService *services.StandupService,
+	pollService *services.PollService) *Server {
+		
+	return &Server{DB: db, Session: session, StandupService: standupService, PollService: pollService}
 }
 
 func (s *Server) Routes() {
@@ -70,11 +75,11 @@ func (s *Server) GetDiscordMetadata(guildID, channelID string) (string, string) 
 
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-        http.NotFound(w, r)
-        return
-    }
+		http.NotFound(w, r)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
-    w.Write([]byte(`{"status": "online", "message": "DailyBot API is running gracefully"}`))
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "online", "message": "DailyBot API is running gracefully"}`))
 }

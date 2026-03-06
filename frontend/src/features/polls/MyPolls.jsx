@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "../components/Sidebar";
+import Sidebar from "../../components/Sidebar";
 import { useNavigate } from "react-router-dom";
-import { useGetManagedPollsQuery, useDeletePollMutation } from "../store/apiSlice";
-import CreatePollModal from "../components/CreatePollModal";
+import { useGetManagedPollsQuery, useDeletePollMutation } from "../../store/apiSlice";
+import CreatePollModal from "./components/CreatePollModal";
 
 export default function MyPolls() {
   const navigate = useNavigate();

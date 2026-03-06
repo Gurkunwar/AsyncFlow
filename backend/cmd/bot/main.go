@@ -37,8 +37,9 @@ func main() {
 		Session: dg,
 	}
 	userSvc := &services.UserService{DB: db}
+	pollSvc := services.NewPollService(db, dg)
 
-	handler := bot.NewBotHandler(dg, rdb, db, standupSvc, userSvc)
+	handler := bot.NewBotHandler(dg, rdb, db, standupSvc, pollSvc, userSvc)
 
 	standupSvc.TriggerFunc = handler.Standups.InitiateStandup
 
@@ -52,7 +53,7 @@ func main() {
 
 	bot.RegisterCommands(dg)
 
-	apiServer := api.NewServer(db, dg, standupSvc)
+	apiServer := api.NewServer(db, dg, standupSvc, pollSvc)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

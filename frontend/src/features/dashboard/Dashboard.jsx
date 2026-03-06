@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import Sidebar from "../components/Sidebar";
-import { useGetDashboardStatsQuery } from "../store/apiSlice";
+import Sidebar from "../../components/Sidebar";
+import { useGetDashboardStatsQuery } from "../../store/apiSlice";
 import {
   AreaChart,
   Area,

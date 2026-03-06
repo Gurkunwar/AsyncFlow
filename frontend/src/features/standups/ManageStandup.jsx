@@ -1,6 +1,6 @@
 import React, { useState } from "react"; // Notice: useEffect is gone!
 import { useParams, useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
+import Sidebar from "../../components/Sidebar";
 import MembersTab from "./tabs/MembersTab";
 import SettingsTab from "./tabs/SettingsTab";
 import HistoryTab from "./tabs/HistoryTab";
@@ -12,7 +12,7 @@ import {
   useToggleMemberMutation,
   useUpdateStandupMutation,
   useDeleteStandupMutation,
-} from "../store/apiSlice";
+} from "../../store/apiSlice";
 
 export default function ManageStandup() {
   const { id } = useParams();

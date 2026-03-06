@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import TimePicker from "./TimePicker";
+import TimePicker from "../../../components/TimePicker";
 import {
   useGetUserGuildsQuery,
   useGetGuildChannelsQuery,
   useCreateStandupMutation,
-} from "../store/apiSlice";
+} from "../../../store/apiSlice";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 

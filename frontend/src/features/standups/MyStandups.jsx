@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "../components/Sidebar";
-import CreateStandupModal from "../components/CreateStandupModel";
+import Sidebar from "../../components/Sidebar";
+import CreateStandupModal from "./components/CreateStandupModel";
 import { useNavigate } from "react-router-dom";
-import { useGetManagedStandupsQuery, useDeleteStandupMutation } from "../store/apiSlice";
+import { useGetManagedStandupsQuery, useDeleteStandupMutation } from "../../store/apiSlice";
 
 export default function MyStandups() {
   const navigate = useNavigate();

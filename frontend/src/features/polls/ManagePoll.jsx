@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
+import Sidebar from "../../components/Sidebar";
 import {
   useGetPollByIdQuery,
   useGetGuildMembersQuery,
   useEndPollMutation,
   useDeletePollMutation,
-} from "../store/apiSlice";
+} from "../../store/apiSlice";
 
 const CHART_COLORS = [
   "#2dd4bf",

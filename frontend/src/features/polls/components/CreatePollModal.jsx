@@ -3,7 +3,7 @@ import {
   useGetUserGuildsQuery,
   useGetGuildChannelsQuery,
   useCreatePollMutation,
-} from "../store/apiSlice";
+} from "../../../store/apiSlice";
 
 export default function CreatePollModal({ isOpen, onClose }) {
   const dropdownRef = useRef(null);

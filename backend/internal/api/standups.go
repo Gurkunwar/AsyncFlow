@@ -215,6 +215,19 @@ func (s *Server) HandleDeleteStandup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if standup.ReportChannelID != "" {
+		goodbyeMsg := fmt.Sprintf(
+			"🛑 **The '%s' standup has been permanently deleted by the manager.**\n"+
+				"No further daily prompts will be sent for this team.",
+			standup.Name)
+
+		_, err := s.Session.ChannelMessageSend(standup.ReportChannelID, goodbyeMsg)
+		if err != nil {
+			log.Printf("Warning: Failed to send deletion notice to channel %s for standup %d: %v",
+				standup.ReportChannelID, standup.ID, err)
+		}
+	}
+
 	if err := s.DB.Model(&standup).Association("Participants").Clear(); err != nil {
 		log.Println("Error clearing standup participants during deletion:", err)
 	}
@@ -226,7 +239,7 @@ func (s *Server) HandleDeleteStandup(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Standup deleted successfully!",
+		"message": "Standup deleted successfully and team notified!",
 	})
 }
 
