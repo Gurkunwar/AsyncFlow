@@ -13,7 +13,39 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string, guildID, channelID string, standupID uint) {
+func (h *StandupHandler) syncDiscordProfile(session *discordgo.Session,
+	userID string) (models.UserProfile, string, string) {
+
+	var userProfile models.UserProfile
+	h.DB.Where("user_id = ?", userID).First(&userProfile)
+
+	discordUser, err := session.User(userID)
+	userName := userID
+	avatarURL := ""
+
+	if err == nil {
+		userName = discordUser.Username
+		avatarURL = discordUser.AvatarURL("")
+
+		needsUpdate := false
+		if userProfile.Username != userName {
+			userProfile.Username = userName
+			needsUpdate = true
+		}
+		if userProfile.Avatar != avatarURL {
+			userProfile.Avatar = avatarURL
+			needsUpdate = true
+		}
+		if needsUpdate {
+			h.DB.Save(&userProfile)
+		}
+	}
+
+	return userProfile, userName, avatarURL
+}
+
+func (h *StandupHandler) InitiateStandup(s *discordgo.Session,
+	userID string, guildID, channelID string, standupID uint) {
 	var profile models.UserProfile
 	h.DB.Unscoped().Preload("Standups").Where("user_id = ?", userID).First(&profile)
 
@@ -28,7 +60,6 @@ func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string, gu
 	}
 
 	if profile.ID == 0 || len(profile.Standups) == 0 {
-
 		s.ChannelMessageSend(targetChannelID,
 			"⛔ You are not part of any standups yet. Please ask your manager to add you.")
 		return
@@ -88,7 +119,8 @@ func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string, gu
 	h.startQuestionFlow(s, channel.ID, userID, targetStandup)
 }
 
-func (h *StandupHandler) startQuestionFlow(session *discordgo.Session, channelID, userID string, standup models.Standup) {
+func (h *StandupHandler) startQuestionFlow(session *discordgo.Session, channelID,
+	userID string, standup models.Standup) {
 	state := models.StandupState{
 		UserID:    userID,
 		GuildID:   standup.GuildID,
@@ -120,18 +152,20 @@ func (h *StandupHandler) startQuestionFlow(session *discordgo.Session, channelID
 	})
 }
 
-func (h *StandupHandler) openSingleAnswerModal(
-	session *discordgo.Session,
-	intr *discordgo.InteractionCreate,
-	standupIDStr string,
-	qIndex int) {
-
+func (h *StandupHandler) openSingleAnswerModal(session *discordgo.Session,
+	intr *discordgo.InteractionCreate, standupIDStr string, qIndex int) {
 	var standupID uint
 	fmt.Sscanf(standupIDStr, "%d", &standupID)
 
 	var standup models.Standup
 	if err := h.DB.First(&standup, standupID).Error; err != nil {
 		log.Println("Error fetching standup for modal:", err)
+		return // <-- FIX: Added return here to prevent a server crash panic!
+	}
+
+	// Extra safety check to prevent out-of-bounds panic
+	if qIndex >= len(standup.Questions) {
+		log.Printf("Question index %d out of bounds for standup %d", qIndex, standup.ID)
 		return
 	}
 
@@ -185,10 +219,7 @@ func (h *StandupHandler) openSingleAnswerModal(
 }
 
 func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
-	intr *discordgo.InteractionCreate,
-	standupID uint,
-	qIndex int) {
-
+	intr *discordgo.InteractionCreate, standupID uint, qIndex int) {
 	answer := intr.ModalSubmitData().Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 
 	redisKey := fmt.Sprintf("%s_%d", intr.User.ID, standupID)
@@ -196,8 +227,10 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 	if err != nil {
 		session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Content: "❌ Session expired. Please run `/start` to try again.",
-				Flags: discordgo.MessageFlagsEphemeral},
+			Data: &discordgo.InteractionResponseData{
+				Content: "❌ Session expired. Please run `/start` to try again.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
 		})
 		return
 	}
@@ -214,7 +247,8 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 		session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("✅ **Question %d answered!**\n\nReady for question %d?", qIndex+1, nextQIndex+1),
+				Content: fmt.Sprintf("✅ **Question %d answered!**\n\nReady for question %d?",
+					qIndex+1, nextQIndex+1),
 				Components: []discordgo.MessageComponent{
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
@@ -253,16 +287,8 @@ func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 		return
 	}
 
-	discordUser, err := session.User(userID)
-	userName := userID 
-	avatarURL := ""
-	if err == nil {
-		userName = discordUser.Username
-		avatarURL = discordUser.AvatarURL("")
-	}
-
-	var userProfile models.UserProfile
-	h.DB.Where("user_id = ?", userID).First(&userProfile)
+	// Call the shared sync function!
+	userProfile, userName, avatarURL := h.syncDiscordProfile(session, userID)
 
 	localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
 
@@ -286,7 +312,7 @@ func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 	}
 
 	session.ChannelMessageSendComplex(standup.ReportChannelID, &discordgo.MessageSend{
-		Content: fmt.Sprintf("<@%s>", userID), 
+		Content: fmt.Sprintf("<@%s>", userID),
 		Embeds:  []*discordgo.MessageEmbed{embed},
 	})
 
@@ -303,16 +329,7 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 		return
 	}
 
-	discordUser, err := s.User(state.UserID)
-	userName := state.UserID // Fallback to ID
-	avatarURL := ""
-	if err == nil {
-		userName = discordUser.Username
-		avatarURL = discordUser.AvatarURL("")
-	}
-
-	var userProfile models.UserProfile
-	h.DB.Where("user_id = ?", state.UserID).First(&userProfile)
+	userProfile, userName, avatarURL := h.syncDiscordProfile(s, state.UserID)
 
 	localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
 
@@ -325,8 +342,6 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 
 	if err := h.DB.Create(&history).Error; err != nil {
 		log.Println("❌ Error saving standup history to database:", err)
-	} else {
-		log.Printf("✅ Saved history for user %s on %s", state.UserID, localToday)
 	}
 
 	var fields []*discordgo.MessageEmbedField
@@ -361,10 +376,7 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 }
 
 func (h *StandupHandler) sendStandupSelectionMenu(s *discordgo.Session,
-	userID,
-	guildID, channelID string,
-	standups []models.Standup) {
-
+	userID, guildID, channelID string, standups []models.Standup) {
 	targetChannelID := channelID
 	if targetChannelID == "" {
 		dm, _ := s.UserChannelCreate(userID)

@@ -54,9 +54,9 @@ func GetUserLocalTime(tz string) time.Time {
 	return time.Now().In(loc)
 }
 
-func RespondWithMessage(session *discordgo.Session, intr *discordgo.InteractionCreate, content string, 
-		ephemeral bool) {
-			
+func RespondWithMessage(session *discordgo.Session, intr *discordgo.InteractionCreate, content string,
+	ephemeral bool) {
+
 	flags := discordgo.MessageFlags(0)
 	if ephemeral {
 		flags = discordgo.MessageFlagsEphemeral
@@ -83,4 +83,16 @@ func UpdateMessage(session *discordgo.Session, intr *discordgo.InteractionCreate
 			Components: components,
 		},
 	})
+}
+
+func ParseCommandOptions(intr *discordgo.InteractionCreate) map[string]*discordgo.
+	ApplicationCommandInteractionDataOption {
+
+	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption)
+	if intr.Type == discordgo.InteractionApplicationCommand {
+		for _, opt := range intr.ApplicationCommandData().Options {
+			optionMap[opt.Name] = opt
+		}
+	}
+	return optionMap
 }
