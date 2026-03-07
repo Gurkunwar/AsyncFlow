@@ -74,11 +74,10 @@ export default function Dashboard() {
       className={`animate-pulse bg-[#3f4147]/50 rounded-lg ${className}`}
     ></div>
   );
-  const getDiscordAvatarUrl = (avatarStr, userId) => {
-    // 1. If no custom avatar hash, use Discord's default avatar logic
+
+const getDiscordAvatarUrl = (avatarStr, userId) => {
     if (!avatarStr || avatarStr === "0" || avatarStr === "") {
       try {
-        // Fallback calculation if userId is missing or invalid
         const id = userId ? BigInt(userId) : 0n;
         const defaultIndex = Number((id >> 22n) % 6n);
         return `https://cdn.discordapp.com/embed/avatars/${defaultIndex}.png`;
@@ -87,14 +86,15 @@ export default function Dashboard() {
       }
     }
 
-    // 2. Custom avatar: Discord expects https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.png
-    // If your backend already sends "userId/hash", we just append .png
-    if (avatarStr.includes("/")) {
-      return `https://cdn.discordapp.com/avatars/${avatarStr}.png`;
+    if (avatarStr.startsWith("http")) {
+      return avatarStr;
     }
 
-    // 3. Fallback: if backend only sends hash, we need the userId separately
-    return `https://cdn.discordapp.com/avatars/${userId}/${avatarStr}.png`;
+    const cleanHash = avatarStr.includes("/")
+      ? avatarStr.split("/")[1]
+      : avatarStr;
+
+    return `https://cdn.discordapp.com/avatars/${userId}/${cleanHash}.png`;
   };
 
   return (
@@ -134,7 +134,10 @@ export default function Dashboard() {
                           src={getDiscordAvatarUrl(b.avatar, b.user_id)}
                           alt="avatar"
                           className="w-6 h-6 rounded-full border border-[#2b2d31] shrink-0 object-cover"
-                          onError={(e) => { e.target.src = "https://cdn.discordapp.com/embed/avatars/0.png"; }}
+                          onError={(e) => {
+                            e.target.src =
+                              "https://cdn.discordapp.com/embed/avatars/0.png";
+                          }}
                         />
                         <span className="font-bold text-[#da373c] text-sm truncate">
                           {b.user}
@@ -145,13 +148,18 @@ export default function Dashboard() {
                         {formatRelativeTime(b.created_at)}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
-                       <p className="text-gray-300 text-sm line-clamp-2 leading-snug flex-1" title={b.task}>
+                      <p
+                        className="text-gray-300 text-sm line-clamp-2 leading-snug flex-1"
+                        title={b.task}
+                      >
                         "{b.task}"
                       </p>
-                      <span className="text-[9px] font-bold text-[#da373c] bg-[#da373c]/20 px-2 py-1 rounded 
-                      uppercase tracking-widest truncate shrink-0 max-w-20 ml-2">
+                      <span
+                        className="text-[9px] font-bold text-[#da373c] bg-[#da373c]/20 px-2 py-1 rounded 
+                      uppercase tracking-widest truncate shrink-0 max-w-20 ml-2"
+                      >
                         {b.team}
                       </span>
                     </div>

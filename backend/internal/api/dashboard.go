@@ -101,7 +101,7 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 			if member != nil && member.User != nil {
 				userName = member.User.Username
 				if member.User.Avatar != "" {
-					avatar = member.User.ID + "/" + member.User.Avatar
+					avatar = member.User.Avatar
 				} else {
 					avatar = "0" 
 				}

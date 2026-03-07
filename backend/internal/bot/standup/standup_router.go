@@ -20,7 +20,7 @@ func (h *StandupHandler) StandupRouter(session *discordgo.Session, intr *discord
 			session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: "Standup started!",
+					Content: "🚀 Standup initiated! **Please check your DMs.**",
 					Flags:   discordgo.MessageFlagsEphemeral,
 				},
 			})

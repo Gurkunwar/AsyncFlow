@@ -44,8 +44,9 @@ func (h *StandupHandler) syncDiscordProfile(session *discordgo.Session,
 	return userProfile, userName, avatarURL
 }
 
-func (h *StandupHandler) InitiateStandup(s *discordgo.Session,
-	userID string, guildID, channelID string, standupID uint) {
+func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string,
+	guildID, channelID string, standupID uint) {
+
 	var profile models.UserProfile
 	h.DB.Unscoped().Preload("Standups").Where("user_id = ?", userID).First(&profile)
 
@@ -54,9 +55,16 @@ func (h *StandupHandler) InitiateStandup(s *discordgo.Session,
 	}
 
 	targetChannelID := channelID
-	if targetChannelID == "" {
-		dm, _ := s.UserChannelCreate(userID)
+	dm, err := s.UserChannelCreate(userID)
+	if err == nil {
 		targetChannelID = dm.ID
+	} else {
+		if channelID != "" {
+			s.ChannelMessageSend(channelID,
+				fmt.Sprintf("⚠️ <@%s>, I cannot DM you. Please enable DMs from server members so "+
+					"I can securely send your standup form.", userID))
+		}
+		return
 	}
 
 	if profile.ID == 0 || len(profile.Standups) == 0 {
@@ -109,18 +117,14 @@ func (h *StandupHandler) InitiateStandup(s *discordgo.Session,
 		h.DB.Save(&profile)
 	}
 
-	channel, _ := s.UserChannelCreate(userID)
+	showTZWarning := profile.Timezone == "UTC"
 
-	if profile.Timezone == "UTC" {
-		s.ChannelMessageSend(targetChannelID,
-			"ℹ️ *Note: Daily reminders are scheduled in UTC. Use `/timezone` to change.*")
-	}
-
-	h.startQuestionFlow(s, channel.ID, userID, targetStandup)
+	h.startQuestionFlow(s, targetChannelID, userID, targetStandup, showTZWarning)
 }
 
-func (h *StandupHandler) startQuestionFlow(session *discordgo.Session, channelID,
-	userID string, standup models.Standup) {
+func (h *StandupHandler) startQuestionFlow(session *discordgo.Session,
+	channelID, userID string, standup models.Standup, showTZWarning bool) {
+
 	state := models.StandupState{
 		UserID:    userID,
 		GuildID:   standup.GuildID,
@@ -131,8 +135,13 @@ func (h *StandupHandler) startQuestionFlow(session *discordgo.Session, channelID
 	redisKey := fmt.Sprintf("%s_%d", userID, standup.ID)
 	store.SaveState(h.Redis, redisKey, state)
 
+	msgContent := "Ready to submit your daily standup?"
+	if showTZWarning {
+		msgContent += "\n\nℹ️ *Note: Daily reminders are scheduled in UTC. Use `/timezone` to change.*"
+	}
+
 	session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
-		Content: "Ready to submit your daily standup?",
+		Content: msgContent,
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
@@ -160,7 +169,7 @@ func (h *StandupHandler) openSingleAnswerModal(session *discordgo.Session,
 	var standup models.Standup
 	if err := h.DB.First(&standup, standupID).Error; err != nil {
 		log.Println("Error fetching standup for modal:", err)
-		return // <-- FIX: Added return here to prevent a server crash panic!
+		return
 	}
 
 	// Extra safety check to prevent out-of-bounds panic
@@ -220,7 +229,9 @@ func (h *StandupHandler) openSingleAnswerModal(session *discordgo.Session,
 
 func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 	intr *discordgo.InteractionCreate, standupID uint, qIndex int) {
-	answer := intr.ModalSubmitData().Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	answer := intr.ModalSubmitData().
+		Components[0].(*discordgo.ActionsRow).
+		Components[0].(*discordgo.TextInput).Value
 
 	redisKey := fmt.Sprintf("%s_%d", intr.User.ID, standupID)
 	state, err := store.GetState(h.Redis, redisKey)
@@ -229,7 +240,7 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "❌ Session expired. Please run `/start` to try again.",
-				Flags:   discordgo.MessageFlagsEphemeral,
+				Components: []discordgo.MessageComponent{},
 			},
 		})
 		return
@@ -283,11 +294,10 @@ func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 
 	var standup models.Standup
 	if err := h.DB.First(&standup, standupID).Error; err != nil {
-		utils.RespondWithError(session, intr.Interaction, "Standup not found.")
-		return
-	}
+        utils.UpdateMessage(session, intr, "❌ Standup not found. It may have been deleted.", nil)
+        return
+    }
 
-	// Call the shared sync function!
 	userProfile, userName, avatarURL := h.syncDiscordProfile(session, userID)
 
 	localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
@@ -377,10 +387,17 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 
 func (h *StandupHandler) sendStandupSelectionMenu(s *discordgo.Session,
 	userID, guildID, channelID string, standups []models.Standup) {
+
 	targetChannelID := channelID
-	if targetChannelID == "" {
-		dm, _ := s.UserChannelCreate(userID)
+	dm, err := s.UserChannelCreate(userID)
+	if err == nil {
 		targetChannelID = dm.ID
+	} else {
+		if channelID != "" {
+			s.ChannelMessageSend(channelID,
+				fmt.Sprintf("⚠️ <@%s>, I cannot DM you. Please enable DMs to use AsyncFlow.", userID))
+		}
+		return
 	}
 
 	var options []discordgo.SelectMenuOption
@@ -417,7 +434,9 @@ func (h *StandupHandler) sendStandupSelectionMenu(s *discordgo.Session,
 	})
 }
 
-func (h *StandupHandler) handleStandupSelection(session *discordgo.Session, intr *discordgo.InteractionCreate) {
+func (h *StandupHandler) handleStandupSelection(session *discordgo.Session,
+	intr *discordgo.InteractionCreate) {
+
 	userID := utils.ExtractUserID(intr)
 
 	if len(intr.MessageComponentData().Values) == 0 {
@@ -436,8 +455,9 @@ func (h *StandupHandler) handleStandupSelection(session *discordgo.Session, intr
 
 	h.DB.Model(&user).Association("Standups").Append(&standup)
 
-	session.ChannelMessageDelete(intr.ChannelID, intr.Message.ID)
-	utils.RespondWithMessage(session, intr, fmt.Sprintf("✅ You joined **%s**!", standup.Name), true)
+	utils.UpdateMessage(session, intr,
+		fmt.Sprintf("✅ You joined **%s**!",
+			standup.Name), nil)
 
 	h.InitiateStandup(session, userID, standup.GuildID, intr.ChannelID, standup.ID)
 }
