@@ -31,6 +31,7 @@ func (s *Server) Routes() {
 	http.HandleFunc("/api/managed-standups", AuthMiddleware(s.HandleGetManagedStandups(s.Session)))
 
 	http.HandleFunc("/api/dashboard/stats", AuthMiddleware(s.HandleGetDashboardStats))
+	http.HandleFunc("/api/dashboard/poll-stats", AuthMiddleware(s.HandleGetPollStats))
 
 	http.HandleFunc("/api/user-guilds", AuthMiddleware(s.HandleGetUserGuilds))
 	http.HandleFunc("/api/guild-channels", AuthMiddleware(s.HandleGetGuildChannels))

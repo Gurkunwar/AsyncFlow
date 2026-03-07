@@ -1,6 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import Sidebar from "../../components/Sidebar";
-import { useGetDashboardStatsQuery } from "../../store/apiSlice";
+import {
+  useGetDashboardStatsQuery,
+  useGetPollDashboardStatsQuery,
+} from "../../store/apiSlice";
 import {
   AreaChart,
   Area,
@@ -13,7 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, suffix = "reports" }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-[#1e1f22] border border-[#3f4147] p-3 rounded-lg shadow-xl">
@@ -21,7 +24,7 @@ const CustomTooltip = ({ active, payload, label }) => {
           {label}
         </p>
         <p className="text-[#38bdf8] font-extrabold text-sm">
-          {payload[0].value} reports
+          {payload[0].value} {suffix}
         </p>
       </div>
     );
@@ -42,40 +45,30 @@ const formatRelativeTime = (dateString) => {
   return `${Math.floor(hours / 24)}d ago`;
 };
 
+const Skeleton = ({ className }) => (
+  <div
+    className={`animate-pulse bg-[#3f4147]/50 rounded-lg ${className}`}
+  ></div>
+);
+
 export default function Dashboard() {
   const userData = JSON.parse(localStorage.getItem("user") || "{}");
+  const [viewMode, setViewMode] = useState("standups"); // "standups" | "polls"
 
-  const { data: stats, isLoading } = useGetDashboardStatsQuery(undefined, {
-    pollingInterval: 60000,
-    refetchOnFocus: true,
-  });
-
-  const lineChartData = useMemo(() => {
-    const rawData =
-      Array.isArray(stats?.weekly_data) && stats.weekly_data.length === 7
-        ? stats.weekly_data
-        : [0, 0, 0, 0, 0, 0, 0];
-
-    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-    return rawData.map((val, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      return { day: daysOfWeek[d.getDay()], reports: val };
+  // Fetch queries conditionally based on active tab to save bandwidth
+  const { data: standupStats, isLoading: isStandupsLoading } =
+    useGetDashboardStatsQuery(undefined, {
+      pollingInterval: 60000,
+      skip: viewMode !== "standups",
     });
-  }, [stats?.weekly_data]);
 
-  const breakdownData = stats?.breakdown_data || [];
-  const todaysBlockers = stats?.blockers || [];
-  const busiestDay = stats?.busiest_day || "N/A";
+  const { data: pollStats, isLoading: isPollsLoading } =
+    useGetPollDashboardStatsQuery(undefined, {
+      pollingInterval: 60000,
+      skip: viewMode !== "polls",
+    });
 
-  const Skeleton = ({ className }) => (
-    <div
-      className={`animate-pulse bg-[#3f4147]/50 rounded-lg ${className}`}
-    ></div>
-  );
-
-const getDiscordAvatarUrl = (avatarStr, userId) => {
+  const getDiscordAvatarUrl = (avatarStr, userId) => {
     if (!avatarStr || avatarStr === "0" || avatarStr === "") {
       try {
         const id = userId ? BigInt(userId) : 0n;
@@ -85,16 +78,107 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
         return `https://cdn.discordapp.com/embed/avatars/0.png`;
       }
     }
-
-    if (avatarStr.startsWith("http")) {
-      return avatarStr;
-    }
-
+    if (avatarStr.startsWith("http")) return avatarStr;
     const cleanHash = avatarStr.includes("/")
       ? avatarStr.split("/")[1]
       : avatarStr;
-
     return `https://cdn.discordapp.com/avatars/${userId}/${cleanHash}.png`;
+  };
+
+  const currentStats = viewMode === "standups" ? standupStats : pollStats;
+  const isLoading =
+    viewMode === "standups" ? isStandupsLoading : isPollsLoading;
+
+  // Formatting Weekly Line Chart Data
+  const lineChartData = useMemo(() => {
+    const rawData =
+      Array.isArray(currentStats?.weekly_data) &&
+      currentStats.weekly_data.length === 7
+        ? currentStats.weekly_data
+        : [0, 0, 0, 0, 0, 0, 0];
+    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return rawData.map((val, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return { day: daysOfWeek[d.getDay()], count: val };
+    });
+  }, [currentStats?.weekly_data]);
+
+  // View Renderers
+  const renderStandupsActivity = () => {
+    const blockers = standupStats?.blockers || [];
+    return blockers.length > 0 ? (
+      blockers.map((b) => (
+        <div
+          key={b.id}
+          className="bg-[#da373c]/5 border border-[#da373c]/20 p-4 rounded-xl flex flex-col gap-2 shadow-sm hover:border-[#da373c]/50 transition-colors w-[320px] shrink-0 snap-start"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <img
+                src={getDiscordAvatarUrl(b.avatar, b.user_id)}
+                alt="avatar"
+                className="w-6 h-6 rounded-full border border-[#2b2d31] shrink-0 object-cover"
+              />
+              <span className="font-bold text-[#da373c] text-sm truncate">
+                {b.user}
+              </span>
+            </div>
+            <span className="text-[9px] font-bold text-[#99AAB5] bg-[#1e1f22] px-1.5 py-0.5 rounded uppercase">
+              {formatRelativeTime(b.created_at)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <p
+              className="text-gray-300 text-sm line-clamp-2 leading-snug flex-1"
+              title={b.task}
+            >
+              "{b.task}"
+            </p>
+            <span className="text-[9px] font-bold text-[#da373c] bg-[#da373c]/20 px-2 py-1 rounded uppercase tracking-widest truncate shrink-0 max-w-20 ml-2">
+              {b.team}
+            </span>
+          </div>
+        </div>
+      ))
+    ) : (
+      <div className="flex-1 flex items-center justify-center h-22 text-[#99AAB5] text-sm bg-[#2b2d31]/50 rounded-xl border border-dashed border-[#3f4147] min-w-[320px]">
+        No updates or blockers reported today.
+      </div>
+    );
+  };
+
+  const renderPollsActivity = () => {
+    const polls = pollStats?.recent_polls || [];
+    return polls.length > 0 ? (
+      polls.map((p) => (
+        <div
+          key={p.id}
+          className="bg-[#38bdf8]/5 border border-[#38bdf8]/20 p-4 rounded-xl flex flex-col gap-2 shadow-sm hover:border-[#38bdf8]/50 transition-colors w-[320px] shrink-0 snap-start"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${p.is_active ? "bg-[#43b581]/20 text-[#43b581]" : "bg-[#404249] text-[#99AAB5]"}`}
+            >
+              {p.is_active ? "Live" : "Ended"}
+            </span>
+            <span className="text-[9px] font-bold text-[#99AAB5] bg-[#1e1f22] px-1.5 py-0.5 rounded uppercase">
+              {formatRelativeTime(p.created_at)}
+            </span>
+          </div>
+          <p
+            className="text-gray-200 text-sm font-semibold line-clamp-2"
+            title={p.question}
+          >
+            {p.question}
+          </p>
+        </div>
+      ))
+    ) : (
+      <div className="flex-1 flex items-center justify-center h-22 text-[#99AAB5] text-sm bg-[#2b2d31]/50 rounded-xl border border-dashed border-[#3f4147] min-w-[320px]">
+        No recent polls found.
+      </div>
+    );
   };
 
   return (
@@ -103,79 +187,60 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
 
       <main className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
         <div className="flex flex-col min-h-full w-full max-w-7xl mx-auto gap-6 pb-2">
-          <div className="shrink-0">
-            <h1 className="text-3xl font-extrabold mb-1">
-              sup! {userData.username || "manager"}
-            </h1>
-            <p className="text-[#99AAB5] text-sm font-medium">
-              here's your summary
-            </p>
+          {/* Header & Toggle */}
+          <div className="shrink-0 flex justify-between items-end">
+            <div>
+              <h1 className="text-3xl font-extrabold mb-1">
+                sup! {userData.username || "manager"}
+              </h1>
+              <p className="text-[#99AAB5] text-sm font-medium">
+                here's your summary
+              </p>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex bg-[#1e1f22] p-1 rounded-lg border border-[#3f4147] shadow-sm">
+              <button
+                onClick={() => setViewMode("standups")}
+                className={`px-5 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === "standups" ? "bg-[#5865F2] text-white shadow" : "text-[#99AAB5] hover:text-white"}`}
+              >
+                Standups
+              </button>
+              <button
+                onClick={() => setViewMode("polls")}
+                className={`px-5 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === "polls" ? "bg-[#38bdf8] text-white shadow" : "text-[#99AAB5] hover:text-white"}`}
+              >
+                Polls
+              </button>
+            </div>
           </div>
 
+          {/* Horizontal Feed */}
           <div className="shrink-0 min-h-30">
-            <h3 className="text-[10px] font-bold text-[#99AAB5] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#da373c] animate-pulse"></span>
-              Latest Standup Updates
+            <h3
+              className={`text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5 ${viewMode === "standups" ? "text-[#da373c]" : "text-[#38bdf8]"}`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full animate-pulse ${viewMode === "standups" ? "bg-[#da373c]" : "bg-[#38bdf8]"}`}
+              ></span>
+              {viewMode === "standups"
+                ? "Latest Standup Updates"
+                : "Recent Polls Feed"}
             </h3>
-
             <div className="flex flex-row gap-4 overflow-x-auto pb-3 pt-1 snap-x scroll-smooth custom-scrollbar">
               {isLoading ? (
-                <>{/* Skeletons */}</>
-              ) : todaysBlockers.length > 0 ? (
-                todaysBlockers.map((b) => (
-                  <div
-                    key={b.id}
-                    className="bg-[#da373c]/5 border border-[#da373c]/20 p-4 rounded-xl flex flex-col
-                   gap-2 shadow-sm hover:border-[#da373c]/50 transition-colors w-[320px] shrink-0 snap-start"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0 pr-2">
-                        <img
-                          src={getDiscordAvatarUrl(b.avatar, b.user_id)}
-                          alt="avatar"
-                          className="w-6 h-6 rounded-full border border-[#2b2d31] shrink-0 object-cover"
-                          onError={(e) => {
-                            e.target.src =
-                              "https://cdn.discordapp.com/embed/avatars/0.png";
-                          }}
-                        />
-                        <span className="font-bold text-[#da373c] text-sm truncate">
-                          {b.user}
-                        </span>
-                      </div>
-                      {/* ADDED: Relative Time Badge */}
-                      <span className="text-[9px] font-bold text-[#99AAB5] bg-[#1e1f22] px-1.5 py-0.5 rounded uppercase">
-                        {formatRelativeTime(b.created_at)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <p
-                        className="text-gray-300 text-sm line-clamp-2 leading-snug flex-1"
-                        title={b.task}
-                      >
-                        "{b.task}"
-                      </p>
-                      <span
-                        className="text-[9px] font-bold text-[#da373c] bg-[#da373c]/20 px-2 py-1 rounded 
-                      uppercase tracking-widest truncate shrink-0 max-w-20 ml-2"
-                      >
-                        {b.team}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                <Skeleton className="w-[320px] h-24 shrink-0" />
+              ) : viewMode === "standups" ? (
+                renderStandupsActivity()
               ) : (
-                <div className="flex-1 flex items-center justify-center h-22 text-[#99AAB5] text-sm bg-[#2b2d31]/50 rounded-xl border border-dashed border-[#3f4147] min-w-[320px]">
-                  No updates or blockers reported today.
-                </div>
+                renderPollsActivity()
               )}
             </div>
           </div>
 
-          {/* TOP GRID: CHARTS - UNTOUCHED */}
+          {/* Charts */}
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-75">
-            {/* LINE CHART */}
+            {/* Area Chart */}
             <div className="lg:col-span-2 bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <h3 className="text-sm font-bold text-[#99AAB5] flex items-center gap-2">
@@ -192,12 +257,11 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
                       d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
                     ></path>
                   </svg>
-                  Responses over time
+                  {viewMode === "standups"
+                    ? "Responses over time"
+                    : "Polls Published"}
                 </h3>
-                <span
-                  className="bg-[#1e1f22] text-xs font-semibold text-[#99AAB5] px-3 py-1.5 rounded border 
-                border-[#3f4147]"
-                >
+                <span className="bg-[#1e1f22] text-xs font-semibold text-[#99AAB5] px-3 py-1.5 rounded border border-[#3f4147]">
                   past 7 days
                 </span>
               </div>
@@ -220,12 +284,16 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
                         >
                           <stop
                             offset="5%"
-                            stopColor="#38bdf8"
+                            stopColor={
+                              viewMode === "standups" ? "#38bdf8" : "#a855f7"
+                            }
                             stopOpacity={0.4}
                           />
                           <stop
                             offset="95%"
-                            stopColor="#38bdf8"
+                            stopColor={
+                              viewMode === "standups" ? "#38bdf8" : "#a855f7"
+                            }
                             stopOpacity={0}
                           />
                         </linearGradient>
@@ -250,11 +318,19 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
                         axisLine={false}
                         allowDecimals={false}
                       />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip
+                        content={
+                          <CustomTooltip
+                            suffix={
+                              viewMode === "standups" ? "reports" : "polls"
+                            }
+                          />
+                        }
+                      />
                       <Area
                         type="monotone"
-                        dataKey="reports"
-                        stroke="#38bdf8"
+                        dataKey="count"
+                        stroke={viewMode === "standups" ? "#38bdf8" : "#a855f7"}
                         strokeWidth={3}
                         fillOpacity={1}
                         fill="url(#colorReports)"
@@ -266,7 +342,7 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
               </div>
             </div>
 
-            {/* BAR CHART */}
+            {/* Bar Chart */}
             <div className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col">
               <h3 className="text-sm font-bold text-[#99AAB5] flex items-center gap-2 mb-4 shrink-0">
                 <svg
@@ -282,22 +358,27 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
                     d="M4 6h16M4 10h16M4 14h16M4 18h16"
                   ></path>
                 </svg>
-                Responses per team
+                {viewMode === "standups"
+                  ? "Responses per team"
+                  : "Most Voted Polls"}
               </h3>
               <div className="flex-1 w-full min-h-0">
                 {isLoading ? (
                   <Skeleton className="w-full h-full" />
-                ) : breakdownData.length === 0 ? (
-                  <div
-                    className="w-full h-full flex items-center justify-center text-[#99AAB5] text-sm border 
-                  border-dashed border-[#3f4147] rounded-xl"
-                  >
+                ) : (viewMode === "standups" &&
+                    !standupStats?.breakdown_data?.length) ||
+                  (viewMode === "polls" && !pollStats?.top_polls?.length) ? (
+                  <div className="w-full h-full flex items-center justify-center text-[#99AAB5] text-sm border border-dashed border-[#3f4147] rounded-xl">
                     No data available
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={breakdownData}
+                      data={
+                        viewMode === "standups"
+                          ? standupStats?.breakdown_data || []
+                          : pollStats?.top_polls || []
+                      }
                       margin={{ top: 10, right: 0, left: -25, bottom: 0 }}
                     >
                       <CartesianGrid
@@ -306,13 +387,19 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
                         vertical={false}
                       />
                       <XAxis
-                        dataKey="team_name"
+                        dataKey={
+                          viewMode === "standups"
+                            ? "team_name"
+                            : "poll_question"
+                        }
                         stroke="#99AAB5"
                         fontSize={10}
                         tickLine={false}
                         axisLine={false}
                         dy={10}
-                        tickFormatter={(val) => val.substring(0, 6)}
+                        tickFormatter={(val) =>
+                          val ? val.substring(0, 6) + ".." : ""
+                        }
                       />
                       <YAxis
                         stroke="#99AAB5"
@@ -323,11 +410,11 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
                       />
                       <Tooltip
                         cursor={{ fill: "#35373c" }}
-                        content={<CustomTooltip />}
+                        content={<CustomTooltip suffix="votes" />}
                       />
                       <Bar
                         dataKey="count"
-                        fill="#38bdf8"
+                        fill={viewMode === "standups" ? "#38bdf8" : "#a855f7"}
                         radius={[4, 4, 0, 0]}
                         animationDuration={1000}
                       />
@@ -338,101 +425,66 @@ const getDiscordAvatarUrl = (avatarStr, userId) => {
             </div>
           </div>
 
-          {/* BOTTOM GRID: STATS - UNTOUCHED */}
+          {/* Bottom Grid Stats */}
           <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-6">
-            <div
-              className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col 
-            justify-center items-center text-center h-30"
-            >
+            <div className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col justify-center items-center text-center h-30">
               <h3 className="text-[#99AAB5] text-xs font-bold uppercase tracking-wider mb-2">
-                Active Teams
+                {viewMode === "standups" ? "Active Teams" : "Total Polls"}
               </h3>
               {isLoading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
                 <div className="text-4xl font-extrabold mb-1">
-                  {stats?.total_teams || 0}
+                  {viewMode === "standups"
+                    ? currentStats?.total_teams || 0
+                    : currentStats?.total_polls || 0}
                 </div>
               )}
             </div>
 
-            <div
-              className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col 
-            justify-center items-center text-center h-30"
-            >
+            <div className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col justify-center items-center text-center h-30">
               <h3 className="text-[#99AAB5] text-xs font-bold uppercase tracking-wider mb-2">
-                Total Participants
+                {viewMode === "standups"
+                  ? "Total Participants"
+                  : "Active Polls"}
               </h3>
               {isLoading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
                 <div className="text-4xl font-extrabold mb-1">
-                  {stats?.total_members || 0}
+                  {viewMode === "standups"
+                    ? currentStats?.total_members || 0
+                    : currentStats?.active_polls || 0}
                 </div>
               )}
             </div>
 
-            <div
-              className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col 
-            justify-center items-center text-center h-30 group"
-            >
-              <h3
-                className="text-[#99AAB5] text-xs font-bold uppercase tracking-wider mb-2 flex items-center 
-              justify-center gap-1.5 w-full"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                  ></path>
-                </svg>
+            <div className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col justify-center items-center text-center h-30 group">
+              <h3 className="text-[#99AAB5] text-xs font-bold uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5 w-full">
                 Busiest Day
               </h3>
               {isLoading ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
                 <div className="text-4xl font-extrabold group-hover:scale-110 transition-transform">
-                  {busiestDay}
+                  {currentStats?.busiest_day || "N/A"}
                 </div>
               )}
             </div>
 
-            <div
-              className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col 
-            justify-center items-center text-center h-30 group"
-            >
-              <h3
-                className="text-[#99AAB5] text-xs font-bold uppercase tracking-wider mb-2 flex items-center 
-              justify-center gap-1.5 w-full"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 
-                  1 0 01.293.707V19a2 2 0 01-2 2z"
-                  ></path>
-                </svg>
-                7-Day Responses
+            <div className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col justify-center items-center text-center h-30 group">
+              <h3 className="text-[#99AAB5] text-xs font-bold uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5 w-full">
+                {viewMode === "standups"
+                  ? "7-Day Responses"
+                  : "Total Votes Cast"}
               </h3>
               {isLoading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
                 <div className="text-4xl font-extrabold group-hover:scale-110 transition-transform">
-                  {stats?.recent_reports || 0}
+                  {viewMode === "standups"
+                    ? currentStats?.recent_reports || 0
+                    : currentStats?.total_votes || 0}
                 </div>
               )}
             </div>

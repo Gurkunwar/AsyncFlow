@@ -38,7 +38,7 @@ export const asyncFlowApi = createApi({
     }),
     getManagedStandups: builder.query({
       query: ({ filter, page, limit = 12, search = "", guild_id = "" }) =>
-        `managed-standups?filter=${filter}&page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&guild_id=${guild_id}`, // 👈 Append it to the URL here
+        `managed-standups?filter=${filter}&page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&guild_id=${guild_id}`,
       providesTags: ["ManagedStandups"],
     }),
     getUserGuilds: builder.query({
@@ -46,6 +46,9 @@ export const asyncFlowApi = createApi({
     }),
     getDashboardStats: builder.query({
       query: () => "dashboard/stats",
+    }),
+    getPollDashboardStats: builder.query({
+      query: () => "dashboard/poll-stats",
     }),
     toggleMember: builder.mutation({
       query: ({ standupId, userId, isCurrentlyMember }) => ({
@@ -128,6 +131,7 @@ export const {
   useGetGuildChannelsQuery,
   useGetHistoryQuery,
   useGetDashboardStatsQuery,
+  useGetPollDashboardStatsQuery,
   useCreateStandupMutation,
   useToggleMemberMutation,
   useUpdateStandupMutation,

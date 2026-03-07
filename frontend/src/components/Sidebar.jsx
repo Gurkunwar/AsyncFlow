@@ -64,7 +64,7 @@ export default function Sidebar() {
 
       {/* Top: Branding & Navigation */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="h-16 flex items-center px-5 border-b border-[#1e1f22] shrink-0">
+        <div className="h-14 flex items-center px-5 border-b border-[#1e1f22] shrink-0">
           <span className="mr-3 text-xl min-w-6 text-center">🤖</span>
           {!isCollapsed && (
             <span className="font-bold text-lg tracking-wide whitespace-nowrap text-white">
