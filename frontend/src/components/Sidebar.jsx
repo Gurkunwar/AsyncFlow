@@ -73,47 +73,46 @@ export default function Sidebar() {
           )}
         </div>
 
-        <nav className="p-3 space-y-1 mt-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
-          <NavItem
-            to="/dashboard"
-            icon="📊"
-            label="Dashboard"
-            isCollapsed={isCollapsed}
-          />
-          <NavItem
-            to="/standups"
-            icon="👥"
-            label="My Standups"
-            isCollapsed={isCollapsed}
-          />
-          <NavItem
-            to="/polls"
-            icon="🗳️"
-            label="Polls"
-            isCollapsed={isCollapsed}
-          />
-          <NavItem
-            to="/history"
-            icon="📜"
-            label="History"
-            isCollapsed={isCollapsed}
-          />
-          <NavItem
-            to="/settings"
-            icon="⚙️"
-            label="Settings"
-            isCollapsed={isCollapsed}
-          />
+        <nav className="p-3 space-y-1 mt-2 overflow-y-auto custom-scrollbar overflow-x-hidden flex-1 flex flex-col">
+          <NavItem to="/dashboard" icon="📊" label="Dashboard" isCollapsed={isCollapsed} />
+          <NavItem to="/standups" icon="👥" label="My Standups" isCollapsed={isCollapsed} />
+          <NavItem to="/polls" icon="🗳️" label="Polls" isCollapsed={isCollapsed} />
+          <NavItem to="/history" icon="📜" label="History" isCollapsed={isCollapsed} />
+          <NavItem to="/settings" icon="⚙️" label="Settings" isCollapsed={isCollapsed} />
+
+          {/* --- NEW: Buy Me a Coffee Button --- */}
+          <div className="mt-auto pt-4">
+            <a
+              href="https://buymeacoffee.com/gurkunwarsingh"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center justify-center gap-2 bg-[#FFDD00]/10 text-[#FFDD00] 
+              border border-[#FFDD00]/20 hover:bg-[#FFDD00] hover:text-black rounded-md font-bold 
+              transition-all shadow-sm group ${isCollapsed ? "p-2.5 mx-1" : "px-4 py-2 mx-1"}`}
+              title={isCollapsed ? "Buy me a coffee" : ""}
+            >
+              <svg
+                className="w-4 h-4 group-hover:animate-bounce shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 8h-2M4 8h12M4 11h12M4 14h12M4 17h12M5 21h10a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 8v4a2 2 0 002 2h0a2 2 0 002-2V8h-4z"></path>
+              </svg>
+              {!isCollapsed && <span className="text-xs whitespace-nowrap">Buy me a coffee</span>}
+            </a>
+          </div>
         </nav>
       </div>
 
       {/* Bottom: User Profile & Logout */}
-      <div className="bg-[#232428] p-3 flex items-center justify-between mt-auto shrink-0 min-h-16">
+      <div className="bg-[#232428] p-3 flex items-center justify-between shrink-0 min-h-16">
         <div className="flex items-center gap-3 overflow-hidden">
           <img
             src={avatarUrl}
             alt="Avatar"
-            className="w-9 h-9 rounded-full shrink-0 border border-gray-700"
+            className="w-9 h-9 rounded-full shrink-0 border border-[#1e1f22]"
           />
           {!isCollapsed && (
             <div className="flex flex-col truncate">
