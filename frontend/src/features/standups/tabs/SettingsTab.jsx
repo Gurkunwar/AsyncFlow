@@ -22,20 +22,16 @@ export default function SettingsTab({
   const [formData, setFormData] = useState({
     name: "",
     time: "09:00",
-    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], // Default days
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     report_channel_id: "",
     questions: [],
   });
 
   useEffect(() => {
     if (standup) {
-      // Parse the comma-separated string back into an array
       let parsedDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
       const daysStr = standup.days || standup.Days;
-      if (daysStr) {
-        parsedDays = daysStr.split(",").map((d) => d.trim());
-      }
-
+      if (daysStr) parsedDays = daysStr.split(",").map((d) => d.trim());
       setFormData({
         name: standup.name || standup.Name || "",
         time: standup.time || standup.Time || "09:00",
@@ -50,8 +46,8 @@ export default function SettingsTab({
   const handleDayToggle = (day) => {
     setFormData((prev) => {
       const newDays = prev.days.includes(day)
-        ? prev.days.filter((d) => d !== day) // Remove day
-        : [...prev.days, day]; // Add day
+        ? prev.days.filter((d) => d !== day)
+        : [...prev.days, day];
       return { ...prev, days: newDays };
     });
   };
@@ -62,9 +58,8 @@ export default function SettingsTab({
     setFormData({ ...formData, questions: newQuestions });
   };
 
-  const addQuestion = () => {
+  const addQuestion = () =>
     setFormData({ ...formData, questions: [...formData.questions, ""] });
-  };
 
   const removeQuestion = (index) => {
     if (formData.questions.length <= 1) return;
@@ -85,18 +80,14 @@ export default function SettingsTab({
     const cleanedQuestions = formData.questions
       .map((q) => q.trim())
       .filter((q) => q.length > 0);
-
     if (cleanedQuestions.length === 0) {
       alert("You must have at least one valid question.");
       return;
     }
-
     if (formData.days.length === 0) {
       alert("You must select at least one active day.");
       return;
     }
-
-    // Convert days array back to a comma-separated string for the Go backend
     onSave({
       ...formData,
       questions: cleanedQuestions,
@@ -117,7 +108,6 @@ export default function SettingsTab({
         onSubmit={handleSubmit}
         className="space-y-6 bg-[#2b2d31] p-6 md:p-8 rounded-xl border border-[#1e1f22] shadow-sm"
       >
-        {/* TEAM NAME & TIME */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 block">
@@ -134,8 +124,6 @@ export default function SettingsTab({
               required
             />
           </div>
-
-          {/* TRIGGER TIME */}
           <div>
             <label className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 block">
               Daily Trigger Time
@@ -149,7 +137,6 @@ export default function SettingsTab({
           </div>
         </div>
 
-        {/* ACTIVE DAYS TOGGLES */}
         <div className="pt-4 border-t border-[#3f4147]">
           <label className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-3 block">
             Active Days
@@ -160,11 +147,12 @@ export default function SettingsTab({
                 key={day}
                 type="button"
                 onClick={() => handleDayToggle(day)}
-                className={`cursor-pointer px-3 py-1.5 rounded-md text-xs font-bold transition-all border ${
-                  formData.days.includes(day)
-                    ? "bg-[#5865F2]/20 border-[#5865F2] text-white"
-                    : "bg-[#1e1f22] border-transparent text-[#99AAB5] hover:text-white hover:border-[#404249]"
-                }`}
+                className={`cursor-pointer px-3 py-1.5 rounded-md text-xs font-bold transition-all border 
+                  ${
+                    formData.days.includes(day)
+                      ? "bg-[#5865F2]/20 border-[#5865F2] text-white"
+                      : "bg-[#1e1f22] border-transparent text-[#99AAB5] hover:text-white hover:border-[#404249]"
+                  }`}
               >
                 {day.substring(0, 3)}
               </button>
@@ -172,7 +160,6 @@ export default function SettingsTab({
           </div>
         </div>
 
-        {/* CHANNEL SELECTION */}
         <div className="pt-4 border-t border-[#3f4147]">
           <label className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 block">
             Report Channel
@@ -214,9 +201,11 @@ export default function SettingsTab({
           </div>
         </div>
 
-        {/* QUESTIONS (Drag and Drop) */}
         <div className="pt-6 border-t border-[#3f4147]">
-          <label className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-4 flex justify-between items-center">
+          <label
+            className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-4 
+          flex justify-between items-center"
+          >
             <span>Questions</span>
             <span className="bg-[#1e1f22] px-2 py-0.5 rounded text-[10px] font-mono border border-[#3f4147]">
               {formData.questions.length}/5
@@ -241,11 +230,12 @@ export default function SettingsTab({
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={`flex items-center gap-3 bg-[#1e1f22] p-3 rounded-md border ${
-                            snapshot.isDragging
-                              ? "border-[#5865F2] shadow-xl scale-[1.02]"
-                              : "border-transparent"
-                          } transition-all duration-200 group`}
+                          className={`flex items-center gap-3 bg-[#1e1f22] p-3 rounded-md border 
+                            ${
+                              snapshot.isDragging
+                                ? "border-[#5865F2] shadow-xl scale-[1.02]"
+                                : "border-transparent"
+                            } transition-all duration-200 group`}
                         >
                           <div
                             {...provided.dragHandleProps}
@@ -279,7 +269,8 @@ export default function SettingsTab({
                             <button
                               type="button"
                               onClick={() => removeQuestion(index)}
-                              className="text-[#404249] hover:text-[#da373c] p-1 transition-colors md:opacity-0 md:group-hover:opacity-100"
+                              className="text-[#404249] hover:text-[#da373c] p-1 transition-colors 
+                              md:opacity-0 md:group-hover:opacity-100"
                               title="Remove Question"
                             >
                               <svg
@@ -311,7 +302,8 @@ export default function SettingsTab({
             <button
               type="button"
               onClick={addQuestion}
-              className="mt-4 text-sm text-[#5865F2] hover:text-[#4752C4] font-bold flex items-center gap-1 transition-colors"
+              className="cursor-pointer mt-4 text-sm text-[#5865F2] hover:text-[#4752C4] font-bold 
+              flex items-center gap-1 transition-colors"
             >
               <svg
                 className="w-4 h-4"
@@ -331,7 +323,6 @@ export default function SettingsTab({
           )}
         </div>
 
-        {/* FOOTER: SAVE & DELETE BUTTONS */}
         <div className="pt-4 border-t border-[#3f4147] flex justify-between items-center">
           <button
             type="button"
@@ -344,19 +335,20 @@ export default function SettingsTab({
                 onDelete();
               }
             }}
-            className="cursor-pointer px-4 py-2 rounded-md font-bold text-sm text-[#da373c] hover:bg-[#da373c]/10 transition-colors"
+            className="cursor-pointer px-4 py-2 rounded-md font-bold text-sm text-[#da373c] 
+            hover:bg-[#da373c]/10 transition-colors"
           >
             Delete Standup
           </button>
-
           <button
             type="submit"
             disabled={isSaving}
-            className={`cursor-pointer px-6 py-2.5 rounded-md font-bold text-sm text-white transition-all shadow-lg ${
-              isSaving
-                ? "bg-[#404249] cursor-not-allowed"
-                : "bg-[#23a559] hover:bg-[#1d8a4a] transform active:scale-95"
-            }`}
+            className={`cursor-pointer px-6 py-2.5 rounded-md font-bold text-sm text-white 
+              transition-all shadow-lg ${
+                isSaving
+                  ? "bg-[#404249] cursor-not-allowed"
+                  : "bg-[#23a559] hover:bg-[#1d8a4a] transform active:scale-95"
+              }`}
           >
             {isSaving ? "Saving..." : "Save Changes"}
           </button>

@@ -12,6 +12,7 @@ import MyPolls from "./features/polls/MyPolls";
 import ManagePoll from "./features/polls/ManagePoll";
 import History from "./features/history/History";
 import Settings from "./features/settings/Settings";
+import MainLayout from "./components/MainLayout";
 
 function App() {
   return (
@@ -21,29 +22,22 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
-          path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <MainLayout />
             </ProtectedRoute>
           }
-        />
-        <Route
-          path="/standups"
-          element={
-            <ProtectedRoute>
-              <MyStandups />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/standups/:id" element={<ManageStandup />} />
-        <Route path="/polls" element={<MyPolls />} />
-        <Route path="/polls/:id" element={<ManagePoll />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/settings" element={<Settings />} />
+        >
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/standups" element={<MyStandups />} />
+          <Route path="/standups/:id" element={<ManageStandup />} />
+          <Route path="/polls" element={<MyPolls />} />
+          <Route path="/polls/:id" element={<ManagePoll />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
       </Routes>
     </Router>
   );
 }
-
 export default App;

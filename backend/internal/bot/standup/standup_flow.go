@@ -292,8 +292,8 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 	h.Redis.Del(context.Background(), "state:"+redisKey)
 }
 
-func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupID uint, channelID, 
-		standupName, userID string, embed *discordgo.MessageEmbed) {
+func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupID uint, channelID,
+	standupName, userID string, embed *discordgo.MessageEmbed) {
 
 	ctx := context.Background()
 	today := time.Now().UTC().Format("2006-01-02")
@@ -304,11 +304,16 @@ func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupI
 	cachedThread, err := h.Redis.Get(ctx, redisKey).Result()
 	switch err {
 	case redis.Nil:
-		headerText := fmt.Sprintf("📅 **%s** Standup Reports - %s", standupName, time.Now().UTC().Format("Monday, Jan 2"))
+		headerText := fmt.Sprintf("📅 **%s** Standup Reports - %s", standupName,
+			time.Now().UTC().Format("Monday, Jan 2"))
 
 		headerMsg, err := session.ChannelMessageSend(channelID, headerText)
 		if err == nil {
-			threadName := fmt.Sprintf("Daily Reports - %s", time.Now().UTC().Format("Jan 2"))
+			safeName := standupName
+			if len(safeName) > 50 {
+				safeName = safeName[:47] + "..."
+			}
+			threadName := fmt.Sprintf("%s - %s", safeName, time.Now().UTC().Format("Jan 2"))
 
 			thread, err := session.MessageThreadStart(channelID, headerMsg.ID, threadName, 1440)
 			if err == nil {
