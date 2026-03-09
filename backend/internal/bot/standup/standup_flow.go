@@ -11,6 +11,7 @@ import (
 	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/Gurkunwar/asyncflow/internal/store"
 	"github.com/bwmarrin/discordgo"
+	"github.com/redis/go-redis/v9"
 )
 
 func (h *StandupHandler) syncDiscordProfile(session *discordgo.Session,
@@ -45,7 +46,7 @@ func (h *StandupHandler) syncDiscordProfile(session *discordgo.Session,
 }
 
 func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string,
-	guildID, channelID string, standupID uint) {
+	guildID, channelID string, standupID uint) error {
 
 	var profile models.UserProfile
 	h.DB.Unscoped().Preload("Standups").Where("user_id = ?", userID).First(&profile)
@@ -59,25 +60,29 @@ func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string,
 	if err == nil {
 		targetChannelID = dm.ID
 	} else {
-		if channelID != "" {
-			s.ChannelMessageSend(channelID,
-				fmt.Sprintf("⚠️ <@%s>, I cannot DM you. Please enable DMs from server members so "+
-					"I can securely send your standup form.", userID))
-		}
-		return
+		return fmt.Errorf("I cannot DM you. Please enable DMs from server members.")
 	}
 
 	if profile.ID == 0 || len(profile.Standups) == 0 {
-		s.ChannelMessageSend(targetChannelID,
-			"⛔ You are not part of any standups yet. Please ask your manager to add you.")
-		return
+		return fmt.Errorf("You are not part of any standups yet. Please ask your manager to add you.")
+	}
+
+	var relevantStandups []models.Standup
+	for _, st := range profile.Standups {
+		if guildID == "" || st.GuildID == guildID {
+			relevantStandups = append(relevantStandups, st)
+		}
+	}
+
+	if len(relevantStandups) == 0 {
+		return fmt.Errorf("You are not part of any standups in this specific server.")
 	}
 
 	var targetStandup models.Standup
 
 	if standupID != 0 {
 		isMember := false
-		for _, st := range profile.Standups {
+		for _, st := range relevantStandups {
 			if st.ID == standupID {
 				targetStandup = st
 				isMember = true
@@ -85,20 +90,19 @@ func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string,
 			}
 		}
 		if !isMember {
-			return
+			return fmt.Errorf("You are not a member of this specific standup.")
 		}
 	} else {
-		if len(profile.Standups) == 1 {
-			targetStandup = profile.Standups[0]
+		if len(relevantStandups) == 1 {
+			targetStandup = relevantStandups[0]
 		} else {
-			h.sendStandupSelectionMenu(s, userID, guildID, channelID, profile.Standups)
-			return
+			h.sendStandupSelectionMenu(s, userID, guildID, channelID, relevantStandups)
+			return nil
 		}
 	}
 
 	if targetStandup.ReportChannelID == "" {
-		s.ChannelMessageSend(targetChannelID, "⚠️ This standup has no report channel set.")
-		return
+		return fmt.Errorf("This standup has no report channel set.")
 	}
 
 	if profile.Timezone == "" {
@@ -120,6 +124,7 @@ func (h *StandupHandler) InitiateStandup(s *discordgo.Session, userID string,
 	showTZWarning := profile.Timezone == "UTC"
 
 	h.startQuestionFlow(s, targetChannelID, userID, targetStandup, showTZWarning)
+	return nil
 }
 
 func (h *StandupHandler) startQuestionFlow(session *discordgo.Session,
@@ -172,7 +177,6 @@ func (h *StandupHandler) openSingleAnswerModal(session *discordgo.Session,
 		return
 	}
 
-	// Extra safety check to prevent out-of-bounds panic
 	if qIndex >= len(standup.Questions) {
 		log.Printf("Question index %d out of bounds for standup %d", qIndex, standup.ID)
 		return
@@ -239,7 +243,7 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 		session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "❌ Session expired. Please run `/start` to try again.",
+				Content:    "❌ Session expired. Please run `/start` to try again.",
 				Components: []discordgo.MessageComponent{},
 			},
 		})
@@ -288,15 +292,60 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 	h.Redis.Del(context.Background(), "state:"+redisKey)
 }
 
+func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupID uint, channelID, 
+		standupName, userID string, embed *discordgo.MessageEmbed) {
+
+	ctx := context.Background()
+	today := time.Now().UTC().Format("2006-01-02")
+	redisKey := fmt.Sprintf("standup_thread:%d:%s", standupID, today)
+
+	var threadID string
+
+	cachedThread, err := h.Redis.Get(ctx, redisKey).Result()
+	switch err {
+	case redis.Nil:
+		headerText := fmt.Sprintf("📅 **%s** Standup Reports - %s", standupName, time.Now().UTC().Format("Monday, Jan 2"))
+
+		headerMsg, err := session.ChannelMessageSend(channelID, headerText)
+		if err == nil {
+			threadName := fmt.Sprintf("Daily Reports - %s", time.Now().UTC().Format("Jan 2"))
+
+			thread, err := session.MessageThreadStart(channelID, headerMsg.ID, threadName, 1440)
+			if err == nil {
+				threadID = thread.ID
+				h.Redis.Set(ctx, redisKey, threadID, 24*time.Hour)
+			} else {
+				log.Printf("Failed to create thread: %v", err)
+			}
+		}
+	case nil:
+		threadID = cachedThread
+	}
+
+	msgSend := &discordgo.MessageSend{
+		Content: fmt.Sprintf("<@%s>", userID),
+		Embeds:  []*discordgo.MessageEmbed{embed},
+	}
+
+	if threadID != "" {
+		_, err = session.ChannelMessageSendComplex(threadID, msgSend)
+		if err != nil {
+			session.ChannelMessageSendComplex(channelID, msgSend)
+		}
+	} else {
+		session.ChannelMessageSendComplex(channelID, msgSend)
+	}
+}
+
 func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 	intr *discordgo.InteractionCreate, standupID uint) {
 	userID := utils.ExtractUserID(intr)
 
 	var standup models.Standup
 	if err := h.DB.First(&standup, standupID).Error; err != nil {
-        utils.UpdateMessage(session, intr, "❌ Standup not found. It may have been deleted.", nil)
-        return
-    }
+		utils.UpdateMessage(session, intr, "❌ Standup not found. It may have been deleted.", nil)
+		return
+	}
 
 	userProfile, userName, avatarURL := h.syncDiscordProfile(session, userID)
 
@@ -321,10 +370,7 @@ func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 		Timestamp:   time.Now().Format(time.RFC3339),
 	}
 
-	session.ChannelMessageSendComplex(standup.ReportChannelID, &discordgo.MessageSend{
-		Content: fmt.Sprintf("<@%s>", userID),
-		Embeds:  []*discordgo.MessageEmbed{embed},
-	})
+	h.sendThreadedReport(session, standup.ID, standup.ReportChannelID, standup.Name, userID, embed)
 
 	utils.UpdateMessage(session, intr,
 		"✅ You have successfully skipped today's standup. Your team has been notified!", nil)
@@ -379,10 +425,7 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 		Timestamp:   time.Now().Format(time.RFC3339),
 	}
 
-	s.ChannelMessageSendComplex(standup.ReportChannelID, &discordgo.MessageSend{
-		Content: fmt.Sprintf("<@%s>", state.UserID),
-		Embeds:  []*discordgo.MessageEmbed{embed},
-	})
+	h.sendThreadedReport(s, standup.ID, standup.ReportChannelID, standup.Name, state.UserID, embed)
 }
 
 func (h *StandupHandler) sendStandupSelectionMenu(s *discordgo.Session,

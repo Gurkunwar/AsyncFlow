@@ -15,7 +15,7 @@ import (
 type StandupService struct {
 	DB          *gorm.DB
 	Session     *discordgo.Session
-	TriggerFunc func(s *discordgo.Session, userID, guildID, channelID string, standupID uint)
+	TriggerFunc func(s *discordgo.Session, userID, guildID, channelID string, standupID uint) error
 }
 
 func (s *StandupService) CreateStandup(input models.Standup) (*models.Standup, error) {

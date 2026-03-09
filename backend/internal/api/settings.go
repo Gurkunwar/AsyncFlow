@@ -11,12 +11,15 @@ func (s *Server) HandleGetUserSettings(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 
 	var profile models.UserProfile
-	if err := s.DB.Where("user_id = ?", userID).FirstOrCreate(&profile, models.UserProfile{
-		UserID:   userID,
-		Timezone: "UTC",
-	}).Error; err != nil {
-		http.Error(w, "Failed to load profile", http.StatusInternalServerError)
-		return
+	err := s.DB.Where(models.UserProfile{UserID: userID}).
+		Attrs(models.UserProfile{Timezone: "UTC"}).
+		FirstOrCreate(&profile).Error
+
+	if err != nil {
+		if fetchErr := s.DB.Where("user_id = ?", userID).First(&profile).Error; fetchErr != nil {
+			http.Error(w, "Failed to load profile", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if profile.Timezone == "" {

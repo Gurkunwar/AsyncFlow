@@ -17,14 +17,24 @@ func (h *StandupHandler) StandupRouter(session *discordgo.Session, intr *discord
 
 		switch data.Name {
 		case "start":
-			session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "🚀 Standup initiated! **Please check your DMs.**",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
-			})
-			h.InitiateStandup(session, userID, intr.GuildID, intr.ChannelID, 0)
+			err := h.InitiateStandup(session, userID, intr.GuildID, intr.ChannelID, 0)
+			if err != nil {
+				session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "⛔ " + err.Error(),
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+			} else {
+				session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "🚀 Standup initiated! **Please check your DMs.**",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+			}
 			return true
 		case "create-standup":
 			h.handleCreateStandup(session, intr)
