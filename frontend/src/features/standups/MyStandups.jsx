@@ -203,9 +203,6 @@ export default function MyStandups() {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-[#232428] px-2 py-1 rounded text-[#99AAB5] font-mono shrink-0 ml-2">
-                    ID: {s.id}
-                  </span>
                 </div>
                 <div className="flex-1"></div>
                 <div className="space-y-3 text-sm pt-4 border-t border-[#3f4147] mt-4">

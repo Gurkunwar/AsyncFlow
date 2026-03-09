@@ -196,9 +196,6 @@ export default function MyPolls() {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-[#232428] px-2 py-1 rounded text-[#99AAB5] font-mono shrink-0 ml-2">
-                    ID: {p.id}
-                  </span>
                 </div>
 
                 {/* Spacer to push footer to bottom */}

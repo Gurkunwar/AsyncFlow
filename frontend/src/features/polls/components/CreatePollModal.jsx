@@ -7,29 +7,23 @@ import {
 
 export default function CreatePollModal({ isOpen, onClose }) {
   const dropdownRef = useRef(null);
-
-  // Wizard State
   const [currentStep, setCurrentStep] = useState(1);
-
-  // Form State
   const [formData, setFormData] = useState({
     guild_id: "",
     report_channel_id: "",
     question: "",
-    duration: 24, // Default 24 hours
-    options: ["", ""], // Start with 2 empty options
+    duration: 24,
+    options: ["", ""],
   });
 
   const [isChannelDropdownOpen, setIsChannelDropdownOpen] = useState(false);
 
-  // RTK Query Hooks
   const { data: guilds = [], isLoading: isLoadingGuilds } =
     useGetUserGuildsQuery(undefined, { skip: !isOpen });
   const { data: channels = [], isFetching: isFetchingChannels } =
     useGetGuildChannelsQuery(formData.guild_id, { skip: !formData.guild_id });
   const [createPoll, { isLoading: isCreating }] = useCreatePollMutation();
 
-  // Close custom dropdown if clicked outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -40,7 +34,6 @@ export default function CreatePollModal({ isOpen, onClose }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Reset modal when opened/closed
   useEffect(() => {
     if (!isOpen) {
       setCurrentStep(1);
@@ -55,7 +48,6 @@ export default function CreatePollModal({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  // --- Handlers ---
   const handleOptionChange = (index, value) => {
     const newOptions = [...formData.options];
     newOptions[index] = value;

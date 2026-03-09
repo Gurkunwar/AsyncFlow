@@ -503,7 +503,7 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                                   <button
                                     type="button"
                                     onClick={() => removeQuestion(index)}
-                                    className="text-[#404249] hover:text-[#da373c]"
+                                    className="cursor-pointer text-[#404249] hover:text-[#da373c]"
                                   >
                                     ✕
                                   </button>
@@ -534,7 +534,7 @@ export default function CreateStandupModal({ isOpen, onClose }) {
             <button
               type="button"
               onClick={currentStep === 1 ? onClose : handleBack}
-              className="px-6 py-2.5 rounded-md font-semibold text-sm text-[#99AAB5] hover:text-white 
+              className="cursor-pointer px-6 py-2.5 rounded-md font-semibold text-sm text-[#99AAB5] hover:text-white 
               hover:bg-[#2b2d31]"
             >
               {currentStep === 1 ? "Cancel" : "← Back"}
@@ -544,7 +544,7 @@ export default function CreateStandupModal({ isOpen, onClose }) {
               <button
                 type="button"
                 onClick={handleNext}
-                className="bg-[#5865F2] hover:bg-[#4752C4] px-8 py-2.5 rounded-md font-bold text-sm 
+                className="cursor-pointer bg-[#5865F2] hover:bg-[#4752C4] px-8 py-2.5 rounded-md font-bold text-sm 
                 text-white transition-all shadow-lg"
               >
                 Continue
@@ -554,7 +554,7 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isCreating}
-                className={`bg-[#23a559] hover:bg-[#1d8a4a] px-8 py-2.5 rounded-md font-bold text-sm 
+                className={`cursor-pointer bg-[#23a559] hover:bg-[#1d8a4a] px-8 py-2.5 rounded-md font-bold text-sm 
                 text-white transition-all shadow-lg ${isCreating ? "opacity-50" : ""}`}
               >
                 {isCreating ? "Creating..." : "Finish Setup"}
