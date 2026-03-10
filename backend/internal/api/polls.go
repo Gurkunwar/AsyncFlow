@@ -316,11 +316,30 @@ func (s *Server) HandleExportWebPoll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleGetPollHistory(w http.ResponseWriter, r *http.Request) {
-	pollID := r.URL.Query().Get("poll_id")
-	if pollID == "" {
+	pollIDStr := r.URL.Query().Get("poll_id")
+	if pollIDStr == "" {
 		http.Error(w, "Missing poll_id parameter", http.StatusBadRequest)
 		return
 	}
+
+	pollID, err := strconv.ParseUint(pollIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid poll ID", http.StatusBadRequest)
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var totalCount int64
+	s.DB.Model(&models.PollVote{}).Where("poll_id = ?", pollID).Count(&totalCount)
 
 	type PollVoteResult struct {
 		ID        uint
@@ -330,19 +349,21 @@ func (s *Server) HandleGetPollHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	var votes []PollVoteResult
 
-	err := s.DB.Table("poll_votes").
+	err = s.DB.Table("poll_votes").
 		Select("poll_votes.id, poll_votes.user_id, poll_options.label, poll_votes.created_at").
 		Joins("JOIN poll_options ON poll_options.id = poll_votes.option_id").
 		Where("poll_votes.poll_id = ?", pollID).
 		Order("poll_votes.created_at desc").
+		Offset(offset).
+		Limit(limit).
 		Scan(&votes).Error
 
 	if err != nil {
-		http.Error(w, "Failed to fetch poll history from database", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch poll history", http.StatusInternalServerError)
 		return
 	}
 
-	var response []dtos.PollHistoryDTO
+	var data []dtos.PollHistoryDTO
 	for _, v := range votes {
 		var profile models.UserProfile
 		s.DB.Where("user_id = ?", v.UserID).First(&profile)
@@ -357,7 +378,7 @@ func (s *Server) HandleGetPollHistory(w http.ResponseWriter, r *http.Request) {
 			timeStr = v.CreatedAt.Format("2006-01-02 15:04:05")
 		}
 
-		response = append(response, dtos.PollHistoryDTO{
+		data = append(data, dtos.PollHistoryDTO{
 			ID:        v.ID,
 			UserID:    v.UserID,
 			UserName:  userName,
@@ -367,10 +388,17 @@ func (s *Server) HandleGetPollHistory(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if response == nil {
-		response = []dtos.PollHistoryDTO{}
+	if data == nil {
+		data = []dtos.PollHistoryDTO{}
 	}
 
+	totalPages := int(math.Ceil(float64(totalCount) / float64(limit)))
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"data":        data,
+		"total_count": totalCount,
+		"page":        page,
+		"total_pages": totalPages,
+	})
 }

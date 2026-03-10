@@ -33,7 +33,8 @@ export const asyncFlowApi = createApi({
       query: (guildId) => `guild-channels?guild_id=${guildId}`,
     }),
     getHistory: builder.query({
-      query: (standupId) => `standups/history?standup_id=${standupId}`,
+      query: ({ id, page = 1, limit = 20 }) =>
+        `/standups/history?standup_id=${id}&page=${page}&limit=${limit}`,
       providesTags: ["History"],
     }),
     getManagedStandups: builder.query({
@@ -122,7 +123,8 @@ export const asyncFlowApi = createApi({
       ],
     }),
     getPollHistory: builder.query({
-      query: (pollId) => `polls/history?poll_id=${pollId}`,
+      query: ({ id, page = 1, limit = 20 }) =>
+        `/polls/history?poll_id=${id}&page=${page}&limit=${limit}`,
       providesTags: ["History"],
     }),
     getUserSettings: builder.query({

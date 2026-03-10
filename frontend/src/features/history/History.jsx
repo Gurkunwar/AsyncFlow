@@ -18,15 +18,25 @@ export default function History() {
     () => localStorage.getItem("historyPollId") || "",
   );
 
+  const [page, setPage] = useState(1);
+
   useEffect(() => {
     localStorage.setItem("historyViewMode", viewMode);
+    setPage(1);
   }, [viewMode]);
+
   useEffect(() => {
-    if (selectedStandupId)
+    if (selectedStandupId) {
       localStorage.setItem("historyStandupId", selectedStandupId);
+      setPage(1);
+    }
   }, [selectedStandupId]);
+
   useEffect(() => {
-    if (selectedPollId) localStorage.setItem("historyPollId", selectedPollId);
+    if (selectedPollId) {
+      localStorage.setItem("historyPollId", selectedPollId);
+      setPage(1);
+    }
   }, [selectedPollId]);
 
   const { data: standupsData, isLoading: isLoadingStandups } =
@@ -35,23 +45,33 @@ export default function History() {
       { skip: viewMode !== "standups" },
     );
   const standups = standupsData?.data || [];
+
   const { data: standupConfig } = useGetStandupByIdQuery(selectedStandupId, {
     skip: viewMode !== "standups" || !selectedStandupId,
   });
-  const { data: historyData, isLoading: isLoadingHistory } = useGetHistoryQuery(
-    selectedStandupId,
-    { skip: viewMode !== "standups" || !selectedStandupId },
-  );
+
+  const { data: historyResponse, isLoading: isLoadingHistory } =
+    useGetHistoryQuery(
+      { id: selectedStandupId, page, limit: 20 },
+      { skip: viewMode !== "standups" || !selectedStandupId },
+    );
+  const historyData = historyResponse?.data || [];
+  const historyTotalPages = historyResponse?.total_pages || 1;
+
   const { data: pollsData, isLoading: isLoadingPolls } =
     useGetManagedPollsQuery(
       { filter: "all", page: 1, limit: 50 },
       { skip: viewMode !== "polls" },
     );
   const polls = pollsData?.data || [];
-  const { data: pollHistoryData, isLoading: isLoadingPollHistory } =
-    useGetPollHistoryQuery(selectedPollId, {
-      skip: viewMode !== "polls" || !selectedPollId,
-    });
+
+  const { data: pollHistoryResponse, isLoading: isLoadingPollHistory } =
+    useGetPollHistoryQuery(
+      { id: selectedPollId, page, limit: 20 },
+      { skip: viewMode !== "polls" || !selectedPollId },
+    );
+  const pollHistoryData = pollHistoryResponse?.data || [];
+  const pollTotalPages = pollHistoryResponse?.total_pages || 1;
 
   useEffect(() => {
     if (viewMode === "standups" && standups.length > 0) {
@@ -100,7 +120,7 @@ export default function History() {
         ].join(",");
       });
       csvContent = [headers.join(","), ...rows].join("\n");
-      filename = `standup_history_${selectedStandupId}.csv`;
+      filename = `standup_history_${selectedStandupId}_page_${page}.csv`;
     } else {
       if (!pollHistoryData || pollHistoryData.length === 0) return;
       const headers = ["Date", "User", "Voted For"];
@@ -109,7 +129,7 @@ export default function History() {
           `"${row.created_at}","${row.user_name}","${row.option.replace(/"/g, '""')}"`,
       );
       csvContent = [headers.join(","), ...rows].join("\n");
-      filename = `poll_history_${selectedPollId}.csv`;
+      filename = `poll_history_${selectedPollId}_page_${page}.csv`;
     }
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -125,8 +145,10 @@ export default function History() {
   const displayQuestions = standupConfig?.questions || standupConfig?.Questions;
   const isExportDisabled =
     viewMode === "standups"
-      ? !historyData || historyData.length === 0
-      : !pollHistoryData || pollHistoryData.length === 0;
+      ? historyData.length === 0
+      : pollHistoryData.length === 0;
+  const currentTotalPages =
+    viewMode === "standups" ? historyTotalPages : pollTotalPages;
 
   return (
     <>
@@ -173,7 +195,7 @@ export default function History() {
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
               ></path>
             </svg>
-            Export CSV
+            Export Page to CSV
           </button>
         </div>
       </div>
@@ -240,7 +262,7 @@ export default function History() {
 
       <div
         className="bg-[#2b2d31] border border-[#1e1f22] rounded-xl shadow-sm flex flex-col 
-      overflow-hidden mb-8"
+      overflow-hidden mb-6"
       >
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-sm whitespace-nowrap">
@@ -446,6 +468,30 @@ export default function History() {
           </table>
         </div>
       </div>
+
+      {currentTotalPages > 1 && (
+        <div className="flex justify-center items-center gap-6">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="cursor-pointer px-4 py-2 bg-[#2b2d31] border border-[#3f4147] rounded-md 
+            font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#35373c] transition-colors"
+          >
+            ← Previous
+          </button>
+          <span className="text-[#99AAB5] text-sm font-bold bg-[#1e1f22] px-4 py-2 rounded-md border border-[#3f4147]">
+            Page {page} of {currentTotalPages}
+          </span>
+          <button
+            disabled={page === currentTotalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="cursor-pointer px-4 py-2 bg-[#2b2d31] border border-[#3f4147] rounded-md 
+            font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#35373c] transition-colors"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </>
   );
 }

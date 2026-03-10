@@ -247,26 +247,44 @@ func (s *Server) HandleDeleteStandup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleGetStandupHistory(w http.ResponseWriter, r *http.Request) {
-	standupID := r.URL.Query().Get("standup_id")
-	if standupID == "" {
+	standupIDStr := r.URL.Query().Get("standup_id")
+	if standupIDStr == "" {
 		http.Error(w, "Missing standup_id parameter", http.StatusBadRequest)
 		return
 	}
 
+	standupID, err := strconv.ParseUint(standupIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid standup ID", http.StatusBadRequest)
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var totalCount int64
+	s.DB.Model(&models.StandupHistory{}).Where("standup_id = ?", standupID).Count(&totalCount)
+
 	var histories []models.StandupHistory
 	if err := s.DB.Where("standup_id = ?", standupID).
 		Order("created_at desc").
-		Limit(100). // Upped the limit a bit for the data table
+		Offset(offset).
+		Limit(limit).
 		Find(&histories).
 		Error; err != nil {
-
 		http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
 		return
 	}
 
-	var response []HistoryDTO
+	var data []HistoryDTO
 	for _, h := range histories {
-
 		var profile models.UserProfile
 		s.DB.Where("user_id = ?", h.UserID).First(&profile)
 
@@ -275,7 +293,7 @@ func (s *Server) HandleGetStandupHistory(w http.ResponseWriter, r *http.Request)
 			userName = "User " + h.UserID[len(h.UserID)-4:]
 		}
 
-		response = append(response, HistoryDTO{
+		data = append(data, HistoryDTO{
 			ID:        h.ID,
 			UserID:    h.UserID,
 			UserName:  userName,
@@ -286,12 +304,19 @@ func (s *Server) HandleGetStandupHistory(w http.ResponseWriter, r *http.Request)
 		})
 	}
 
-	if response == nil {
-		response = []HistoryDTO{}
+	if data == nil {
+		data = []HistoryDTO{}
 	}
 
+	totalPages := int(math.Ceil(float64(totalCount) / float64(limit)))
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"data":        data,
+		"total_count": totalCount,
+		"page":        page,
+		"total_pages": totalPages,
+	})
 }
 
 func (s *Server) HandleAddStandupMember(w http.ResponseWriter, r *http.Request) {
