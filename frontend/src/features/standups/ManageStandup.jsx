@@ -7,6 +7,7 @@ import {
   useGetStandupByIdQuery,
   useGetGuildMembersQuery,
   useGetGuildChannelsQuery,
+  useGetGuildRolesQuery,
   useToggleMemberMutation,
   useUpdateStandupMutation,
   useDeleteStandupMutation,
@@ -23,7 +24,12 @@ export default function ManageStandup() {
 
   const { data: guildMembers = [], isLoading: isMembersLoading } =
     useGetGuildMembersQuery(standup?.guild_id, { skip: skipSecondaryFetches });
+  
   const { data: channels = [] } = useGetGuildChannelsQuery(standup?.guild_id, {
+    skip: skipSecondaryFetches,
+  });
+
+  const { data: roles = [] } = useGetGuildRolesQuery(standup?.guild_id, {
     skip: skipSecondaryFetches,
   });
 
@@ -52,9 +58,9 @@ export default function ManageStandup() {
         id: parseInt(id),
         ...updatedData,
       }).unwrap();
-      alert("Settings saved successfully!");
+      alert("Saved successfully!");
     } catch (err) {
-      alert("Failed to save settings.");
+      alert("Failed to save.");
     }
   };
 
@@ -115,8 +121,11 @@ export default function ManageStandup() {
           <MembersTab
             standup={standup}
             guildMembers={guildMembers}
+            roles={roles}
             isLoading={isLoading}
             onToggleMember={toggleMember}
+            onUpdateStandup={updateStandup}
+            isSaving={isSaving}
           />
         )}
         {activeTab === "settings" && (

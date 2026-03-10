@@ -36,6 +36,7 @@ func (s *Server) Routes() {
 	http.HandleFunc("/api/user-guilds", AuthMiddleware(s.HandleGetUserGuilds))
 	http.HandleFunc("/api/guild-channels", AuthMiddleware(s.HandleGetGuildChannels))
 	http.HandleFunc("/api/guild-members", AuthMiddleware(s.HandleGetGuildMembers))
+    http.HandleFunc("/api/guilds/roles", AuthMiddleware(s.HandleGetGuildRoles))
 
 	http.HandleFunc("/api/standups/create", AuthMiddleware(s.HandleCreateStandup))
 	http.HandleFunc("/api/standups/update", AuthMiddleware(s.HandleUpdateStandup))

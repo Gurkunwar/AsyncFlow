@@ -32,6 +32,9 @@ export const asyncFlowApi = createApi({
     getGuildChannels: builder.query({
       query: (guildId) => `guild-channels?guild_id=${guildId}`,
     }),
+    getGuildRoles: builder.query({
+      query: (guildId) => `/guilds/roles?guild_id=${guildId}`,
+    }),
     getHistory: builder.query({
       query: ({ id, page = 1, limit = 20 }) =>
         `/standups/history?standup_id=${id}&page=${page}&limit=${limit}`,
@@ -146,7 +149,9 @@ export const {
   useGetStandupByIdQuery,
   useGetUserGuildsQuery,
   useGetGuildMembersQuery,
+  useGetGuildRolesQuery,
   useGetGuildChannelsQuery,
+
   useGetHistoryQuery,
   useGetDashboardStatsQuery,
   useGetPollDashboardStatsQuery,

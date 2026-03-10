@@ -1,6 +1,7 @@
 package services
 
 import (
+	"slices"
 	"errors"
 	"fmt"
 	"log"
@@ -131,4 +132,59 @@ func (s *StandupService) GetHistory(userID string, standupID uint, days int) ([]
         Find(&histories).Error
 
     return histories, err
+}
+
+func (s *StandupService) SyncRoleMembers(standupID uint) error {
+    var standup models.Standup
+    if err := s.DB.Preload("Participants").First(&standup, standupID).Error; err != nil {
+        return err
+    }
+
+    if standup.SyncRoleID == "" {
+        return nil
+    }
+
+    var allMembers []*discordgo.Member
+    var after string
+    for {
+        members, err := s.Session.GuildMembers(standup.GuildID, after, 1000)
+        if err != nil {
+            return fmt.Errorf("failed to fetch guild members: %v", err)
+        }
+        allMembers = append(allMembers, members...)
+        if len(members) < 1000 {
+            break
+        }
+        after = members[len(members)-1].User.ID
+    }
+
+    existingMap := make(map[string]bool)
+    for _, p := range standup.Participants {
+        existingMap[p.UserID] = true
+    }
+
+    addedCount := 0
+
+    for _, m := range allMembers {
+        if m.User.Bot {
+            continue
+        }
+
+        hasRole := slices.Contains(m.Roles, standup.SyncRoleID)
+
+        if hasRole && !existingMap[m.User.ID] {
+            err := s.AddMemberToStandup(m.User.ID, standup.ID)
+            if err != nil {
+                log.Printf("❌ Failed to auto-sync user %s: %v", m.User.Username, err)
+            } else {
+                addedCount++
+            }
+        }
+    }
+
+    if addedCount > 0 {
+        log.Printf("Role auto-sync complete for standup '%s'. Added %d new members.", standup.Name, addedCount)
+    }
+    
+    return nil
 }

@@ -24,6 +24,7 @@ export default function SettingsTab({
     time: "09:00",
     days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     report_channel_id: "",
+    sync_role_id: "",
     questions: [],
   });
 
@@ -38,6 +39,7 @@ export default function SettingsTab({
         days: parsedDays,
         report_channel_id:
           standup.report_channel_id || standup.ReportChannelID || "",
+        sync_role_id: standup.sync_role_id || standup.SyncRoleID || "", // Preserved from API
         questions: standup.questions || standup.Questions || [],
       });
     }
@@ -88,6 +90,8 @@ export default function SettingsTab({
       alert("You must select at least one active day.");
       return;
     }
+
+    // Sends the full payload (including our hidden sync_role_id) back to the backend
     onSave({
       ...formData,
       questions: cleanedQuestions,

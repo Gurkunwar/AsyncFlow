@@ -15,6 +15,7 @@ type Standup struct {
 	Time            string         `default:"09:00" json:"time"`
 	Days            string
 	Participants    []UserProfile `gorm:"many2many:standup_participants;" json:"participants"`
+	SyncRoleID      string        `json:"sync_role_id"`
 }
 
 type StandupHistory struct {

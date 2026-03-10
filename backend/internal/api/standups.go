@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -193,6 +194,7 @@ func (s *Server) HandleUpdateStandup(w http.ResponseWriter, r *http.Request) {
 		Days            string   `json:"days"`
 		ReportChannelID string   `json:"report_channel_id"`
 		Questions       []string `json:"questions"`
+		SyncRoleID      string   `json:"sync_role_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -213,11 +215,17 @@ func (s *Server) HandleUpdateStandup(w http.ResponseWriter, r *http.Request) {
 	standup.Days = payload.Days
 	standup.ReportChannelID = payload.ReportChannelID
 	standup.Questions = payload.Questions
+	standup.SyncRoleID = payload.SyncRoleID
 
 	if err := s.StandupService.UpdateStandup(standup); err != nil {
 		http.Error(w, "Failed to update", http.StatusInternalServerError)
 		return
 	}
+
+	err := s.StandupService.SyncRoleMembers(standup.ID)
+    if err != nil {
+        log.Printf("Warning: Role sync failed: %v", err)
+    }
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
