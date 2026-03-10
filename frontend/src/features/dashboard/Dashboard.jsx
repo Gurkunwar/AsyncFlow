@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   useGetDashboardStatsQuery,
   useGetPollDashboardStatsQuery,
@@ -52,18 +52,84 @@ const Skeleton = ({ className }) => (
 export default function Dashboard() {
   const userData = JSON.parse(localStorage.getItem("user") || "{}");
   const [viewMode, setViewMode] = useState("standups");
+  const [isLive, setIsLive] = useState(false);
 
-  const { data: standupStats, isLoading: isStandupsLoading } =
-    useGetDashboardStatsQuery(undefined, {
-      pollingInterval: 60000,
-      skip: viewMode !== "standups",
-    });
+  const {
+    data: standupStats,
+    isLoading: isStandupsLoading,
+    refetch: refetchStandups,
+  } = useGetDashboardStatsQuery(undefined, { skip: viewMode !== "standups" });
 
-  const { data: pollStats, isLoading: isPollsLoading } =
-    useGetPollDashboardStatsQuery(undefined, {
-      pollingInterval: 60000,
-      skip: viewMode !== "polls",
-    });
+  const {
+    data: pollStats,
+    isLoading: isPollsLoading,
+    refetch: refetchPolls,
+  } = useGetPollDashboardStatsQuery(undefined, { skip: viewMode !== "polls" });
+
+  const liveRefs = useRef({ refetchStandups, refetchPolls });
+  useEffect(() => {
+    liveRefs.current = { refetchStandups, refetchPolls };
+  }, [refetchStandups, refetchPolls]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const wsProtocol =
+      window.location.protocol === "https:" ? "wss://" : "ws://";
+    let apiBase =
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/";
+    if (!apiBase.endsWith("/")) apiBase += "/";
+    const wsBase = apiBase.replace(/^http(s?):\/\//, wsProtocol);
+
+    let ws = null;
+    let pingInterval = null;
+    let reconnectTimeout = null;
+    let isIntentionallyClosing = false;
+
+    const connectWebSocket = () => {
+      ws = new WebSocket(`${wsBase}ws?token=${token}`);
+
+      ws.onopen = () => {
+        setIsLive(true);
+        pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({ type: "ping" }));
+        }, 30000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const update = JSON.parse(event.data);
+          if (update.type === "NEW_STANDUP_REPORT") {
+            liveRefs.current.refetchStandups().unwrap();
+          }
+          if (update.type === "NEW_POLL_VOTE") {
+            liveRefs.current.refetchPolls().unwrap();
+          }
+        } catch (err) {
+          // ignore parsing errors for raw text pongs
+        }
+      };
+
+      ws.onclose = () => {
+        setIsLive(false);
+        clearInterval(pingInterval);
+        if (!isIntentionallyClosing) {
+          reconnectTimeout = setTimeout(connectWebSocket, 3000);
+        }
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      isIntentionallyClosing = true;
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimeout);
+      if (ws) ws.close();
+    };
+  }, []);
 
   const getDiscordAvatarUrl = (avatarStr, userId) => {
     if (!avatarStr || avatarStr === "0" || avatarStr === "") {
@@ -156,8 +222,8 @@ export default function Dashboard() {
       polls.map((p) => (
         <div
           key={p.id}
-          className="bg-[#38bdf8]/5 border border-[#38bdf8]/20 p-4 rounded-xl flex flex-col gap-2 
-          shadow-sm hover:border-[#38bdf8]/50 transition-colors w-[320px] shrink-0 snap-start"
+          className="bg-[#38bdf8]/5 border border-[#38bdf8]/20 p-4 rounded-xl flex flex-col gap-2 shadow-sm 
+          hover:border-[#38bdf8]/50 transition-colors w-[320px] shrink-0 snap-start"
         >
           <div className="flex items-center justify-between mb-1">
             <span
@@ -183,8 +249,8 @@ export default function Dashboard() {
       ))
     ) : (
       <div
-        className="flex-1 flex items-center justify-center h-22 text-[#99AAB5] text-sm 
-      bg-[#2b2d31]/50 rounded-xl border border-dashed border-[#3f4147] min-w-[320px]"
+        className="flex-1 flex items-center justify-center h-22 text-[#99AAB5] text-sm bg-[#2b2d31]/50 
+      rounded-xl border border-dashed border-[#3f4147] min-w-[320px]"
       >
         No recent polls found.
       </div>
@@ -192,35 +258,46 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full h-full min-h-[calc(100vh-4rem)]">
+    <div className="flex-1 flex flex-col w-full h-full min-h-[calc(100vh-4rem)] relative">
       {/* Header & Toggle */}
       <div className="shrink-0 flex justify-between items-end mb-6">
         <div>
           <h1 className="text-3xl font-extrabold mb-1">
             sup! {userData.username || "manager"}
           </h1>
-          <p className="text-[#99AAB5] text-sm font-medium">
+          <p className="text-[#99AAB5] text-sm font-medium flex items-center gap-2">
             here's your summary
+            {isLive && (
+              <span
+                className="flex items-center gap-1 bg-[#23a559]/20 text-[#23a559] px-2 py-0.5 rounded 
+              text-[10px] uppercase font-bold tracking-widest"
+              >
+                <span className="w-1.5 h-1.5 bg-[#23a559] rounded-full animate-pulse"></span>
+                Live Feed
+              </span>
+            )}
           </p>
         </div>
         <div className="flex bg-[#1e1f22] p-1 rounded-lg border border-[#3f4147] shadow-sm">
           <button
             onClick={() => setViewMode("standups")}
-            className={`cursor-pointer px-5 py-1.5 text-sm font-bold rounded-md transition-all ${
-              viewMode === "standups"
-                ? "bg-[#5865F2] text-white shadow"
-                : "text-[#99AAB5] hover:text-white"
-            }`}
+            className={`cursor-pointer px-5 py-1.5 text-sm font-bold rounded-md transition-all 
+              ${
+                viewMode === "standups"
+                  ? "bg-[#5865F2] text-white shadow"
+                  : "text-[#99AAB5] hover:text-white"
+              }`}
           >
             Standups
           </button>
           <button
             onClick={() => setViewMode("polls")}
-            className={`cursor-pointer px-5 py-1.5 text-sm font-bold rounded-md transition-all ${
-              viewMode === "polls"
-                ? "bg-[#38bdf8] text-white shadow"
-                : "text-[#99AAB5] hover:text-white"
-            }`}
+            className={`cursor-pointer px-5 py-1.5 text-sm font-bold rounded-md transition-all 
+              ${
+                viewMode === "polls"
+                  ? "bg-[#38bdf8] text-white shadow"
+                  : "text-[#99AAB5] hover:text-white"
+              }`}
           >
             Polls
           </button>
@@ -230,13 +307,12 @@ export default function Dashboard() {
       {/* Horizontal Feed */}
       <div className="shrink-0 min-h-30 mb-6">
         <h3
-          className={`text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center 
-            gap-1.5 ${viewMode === "standups" ? "text-[#da373c]" : "text-[#38bdf8]"}`}
+          className={`text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5 
+            ${viewMode === "standups" ? "text-[#da373c]" : "text-[#38bdf8]"}`}
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-              viewMode === "standups" ? "bg-[#da373c]" : "bg-[#38bdf8]"
-            }`}
+            className={`w-1.5 h-1.5 rounded-full ${isLive ? "animate-pulse" : ""} 
+              ${viewMode === "standups" ? "bg-[#da373c]" : "bg-[#38bdf8]"}`}
           ></span>
           {viewMode === "standups"
             ? "Latest Standup Updates"
@@ -252,10 +328,12 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Charts Block */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 min-h-75">
         <div
-          className="lg:col-span-2 bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] 
-        shadow-sm flex flex-col h-full"
+          className="lg:col-span-2 bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm 
+        flex flex-col h-full"
         >
           <div className="flex items-center justify-between mb-4 shrink-0">
             <h3 className="text-sm font-bold text-[#99AAB5] flex items-center gap-2">
@@ -277,8 +355,8 @@ export default function Dashboard() {
                 : "Polls Published"}
             </h3>
             <span
-              className="bg-[#1e1f22] text-xs font-semibold text-[#99AAB5] px-3 py-1.5 
-            rounded border border-[#3f4147]"
+              className="bg-[#1e1f22] text-xs font-semibold text-[#99AAB5] px-3 py-1.5 rounded border 
+            border-[#3f4147]"
             >
               past 7 days
             </span>
@@ -385,8 +463,8 @@ export default function Dashboard() {
                 !standupStats?.breakdown_data?.length) ||
               (viewMode === "polls" && !pollStats?.top_polls?.length) ? (
               <div
-                className="absolute inset-0 w-full h-full flex items-center justify-center 
-              text-[#99AAB5] text-sm border border-dashed border-[#3f4147] rounded-xl"
+                className="absolute inset-0 w-full h-full flex items-center justify-center text-[#99AAB5] 
+              text-sm border border-dashed border-[#3f4147] rounded-xl"
               >
                 No data available
               </div>
@@ -441,6 +519,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
       <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-6">
         <div
           className="bg-[#2b2d31] p-5 rounded-2xl border border-[#1e1f22] shadow-sm flex flex-col 

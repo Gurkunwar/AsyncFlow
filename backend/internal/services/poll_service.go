@@ -12,8 +12,9 @@ import (
 )
 
 type PollService struct {
-	DB      *gorm.DB
-	Session *discordgo.Session
+	DB          *gorm.DB
+	Session     *discordgo.Session
+	WSBroadcast chan []byte
 }
 
 func NewPollService(db *gorm.DB, session *discordgo.Session) *PollService {

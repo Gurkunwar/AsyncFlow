@@ -6,6 +6,7 @@ import (
 
 	"github.com/Gurkunwar/asyncflow/internal/bot/poll"
 	"github.com/Gurkunwar/asyncflow/internal/bot/standup"
+	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/Gurkunwar/asyncflow/internal/services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/redis/go-redis/v9"
@@ -27,7 +28,8 @@ func NewBotHandler(session *discordgo.Session,
 	db *gorm.DB,
 	standupService *services.StandupService,
 	pollService *services.PollService,
-	userService *services.UserService) *BotHanlder {
+	userService *services.UserService,
+	wsBroadcast chan []byte) *BotHanlder {
 
 	standupHandler := standup.NewStandupHandler(db, redis, standupService)
 	pollhandler := poll.NewPollHandler(db, redis, pollService)
@@ -90,5 +92,76 @@ func RegisterCommands(dg *discordgo.Session) {
 		if err != nil {
 			log.Printf("Cannot create '%v' command: %v", command.Name, err)
 		}
+	}
+}
+
+func (h *BotHanlder) HandleGuildCreate(session *discordgo.Session, guildCreate *discordgo.GuildCreate) {
+	if guildCreate.Guild.Unavailable {
+		return
+	}
+
+	var count int64
+	h.DB.Model(&models.Guild{}).Where("guild_id = ?", guildCreate.Guild.ID).Count(&count)
+
+	if count > 0 {
+		return
+	}
+
+	h.DB.Create(&models.Guild{GuildID: guildCreate.Guild.ID})
+
+	var targetChannelID string
+	if guildCreate.Guild.SystemChannelID != "" {
+		targetChannelID = guildCreate.Guild.SystemChannelID
+	} else {
+		for _, channel := range guildCreate.Guild.Channels {
+			if channel.Type == discordgo.ChannelTypeGuildText {
+				targetChannelID = channel.ID
+				break
+			}
+		}
+	}
+
+	if targetChannelID == "" {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title: "👋 Hey there! I'm AsyncFlow",
+		Description: "Thanks for inviting me! I'm here to make your daily standups, weekly retros, " +
+			"and team syncs completely effortless.\n\nTo get started, the server owner or an admin just needs " +
+			"to head over to the web dashboard or '/' bot commands. From there, you can set up your first team, " +
+			"pick a schedule, and customize your questions.",
+		Color: 0x5865F2,
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL: session.State.User.AvatarURL(""),
+		},
+	}
+
+	frontendURL := "http://localhost:5173/dashboard"
+	if envURL := os.Getenv("FRONTEND_URL"); envURL != "" {
+		frontendURL = envURL
+	}
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label: "🚀 Go to Dashboard",
+					Style: discordgo.LinkButton,
+					URL:   frontendURL,
+				},
+			},
+		},
+	}
+
+	_, err := session.ChannelMessageSendComplex(targetChannelID, &discordgo.MessageSend{
+		Embeds:     []*discordgo.MessageEmbed{embed},
+		Components: components,
+	})
+
+	if err != nil {
+		log.Printf("Warning: Failed to send welcome message to guild %s: %v", guildCreate.Guild.Name, err)
+	} else {
+		log.Printf("🎉 Welcomed new server: %s", guildCreate.Guild.Name)
 	}
 }

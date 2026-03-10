@@ -13,6 +13,7 @@ type StandupHandler struct {
 }
 
 func NewStandupHandler(db *gorm.DB, redis *redis.Client, svc *services.StandupService) *StandupHandler {
+
 	return &StandupHandler{
 		DB:             db,
 		Redis:          redis,

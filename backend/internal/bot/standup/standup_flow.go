@@ -379,6 +379,14 @@ func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 
 	utils.UpdateMessage(session, intr,
 		"✅ You have successfully skipped today's standup. Your team has been notified!", nil)
+
+	if h.StandupService.WSBroadcast != nil {
+        select {
+        case h.StandupService.WSBroadcast <- []byte(`{"type": "NEW_STANDUP_REPORT"}`):
+        default:
+            log.Println("⚠️ WS Broadcast channel blocked/full, skipping live update.")
+        }
+    }
 }
 
 func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.StandupState) {
@@ -431,6 +439,16 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 	}
 
 	h.sendThreadedReport(s, standup.ID, standup.ReportChannelID, standup.Name, state.UserID, embed)
+
+	if h.StandupService.WSBroadcast != nil {
+        log.Println("⚡ Emitting live standup update to Web Dashboard...")
+        
+        select {
+        case h.StandupService.WSBroadcast <- []byte(`{"type": "NEW_STANDUP_REPORT"}`):
+        default:
+            log.Println("⚠️ WS Broadcast channel blocked/full, skipping live update.")
+        }
+    }
 }
 
 func (h *StandupHandler) sendStandupSelectionMenu(s *discordgo.Session,

@@ -14,14 +14,27 @@ type Server struct {
 	Session        *discordgo.Session
 	StandupService *services.StandupService
 	PollService    *services.PollService
+	WSHub          *Hub
 }
 
 func NewServer(db *gorm.DB,
 	session *discordgo.Session,
 	standupService *services.StandupService,
 	pollService *services.PollService) *Server {
-		
-	return &Server{DB: db, Session: session, StandupService: standupService, PollService: pollService}
+
+	hub := NewHub()
+	go hub.Run()
+
+	standupService.WSBroadcast = hub.Broadcast
+	pollService.WSBroadcast = hub.Broadcast
+
+	return &Server{
+		DB:             db,
+		Session:        session,
+		StandupService: standupService,
+		PollService:    pollService,
+		WSHub:          hub,
+	}
 }
 
 func registerProtected(path string, handler http.HandlerFunc) {
@@ -31,15 +44,16 @@ func registerProtected(path string, handler http.HandlerFunc) {
 func (s *Server) Routes() {
 	http.HandleFunc("/", RateLimitMiddleware(s.handleRoot))
 	http.HandleFunc("/api/auth/discord", RateLimitMiddleware(HandleDiscordLogin(s.DB)))
+	http.HandleFunc("/api/ws", s.HandleWebSocket)
 
 	registerProtected("/api/dashboard/stats", s.HandleGetDashboardStats)
 	registerProtected("/api/dashboard/poll-stats", s.HandleGetPollStats)
-	
+
 	registerProtected("/api/user-guilds", s.HandleGetUserGuilds)
 	registerProtected("/api/guild-channels", s.HandleGetGuildChannels)
 	registerProtected("/api/guild-members", s.HandleGetGuildMembers)
 	registerProtected("/api/guilds/roles", s.HandleGetGuildRoles)
-	
+
 	registerProtected("/api/managed-standups", s.HandleGetManagedStandups(s.Session))
 	registerProtected("/api/standups/create", s.HandleCreateStandup)
 	registerProtected("/api/standups/update", s.HandleUpdateStandup)

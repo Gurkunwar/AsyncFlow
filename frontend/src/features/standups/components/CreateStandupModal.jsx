@@ -68,8 +68,13 @@ export default function CreateStandupModal({ isOpen, onClose }) {
 
   const [isChannelDropdownOpen, setIsChannelDropdownOpen] = useState(false);
 
-  const { data: guilds = [], isLoading: isLoadingGuilds } =
-    useGetUserGuildsQuery(undefined, { skip: !isOpen });
+  const {
+    data: guilds = [],
+    isLoading: isLoadingGuilds,
+    isFetching: isFetchingGuilds,
+    refetch: refetchGuilds,
+  } = useGetUserGuildsQuery(undefined, { skip: !isOpen });
+
   const { data: channels = [], isFetching: isFetchingChannels } =
     useGetGuildChannelsQuery(formData.guild_id, { skip: !formData.guild_id });
   const [createStandup, { isLoading: isCreating }] = useCreateStandupMutation();
@@ -83,6 +88,16 @@ export default function CreateStandupModal({ isOpen, onClose }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      if (isOpen) {
+        refetchGuilds();
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [isOpen, refetchGuilds]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -108,7 +123,6 @@ export default function CreateStandupModal({ isOpen, onClose }) {
       setFormData((prev) => ({
         ...prev,
         questions: [...template.questions],
-        // UX Bonus: Auto-fill the name if they haven't typed one yet
         name: prev.name === "" && tId !== "custom" ? template.name : prev.name,
       }));
     }
@@ -192,7 +206,6 @@ export default function CreateStandupModal({ isOpen, onClose }) {
     channels.find((c) => c.id === formData.report_channel_id)?.name ||
     "Select a channel...";
 
-  // Find the current template object so we can preview it
   const currentTemplateObj = STANDUP_TEMPLATES.find(
     (t) => t.id === selectedTemplate,
   );
@@ -265,7 +278,8 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                   <select
                     value={selectedTemplate}
                     onChange={handleTemplateChange}
-                    className="w-full bg-[#1e1f22] text-sm text-white px-3 py-2.5 rounded-md outline-none border border-[#1e1f22] focus:border-[#5865F2] cursor-pointer"
+                    className="w-full bg-[#1e1f22] text-sm text-white px-3 py-2.5 rounded-md outline-none 
+                    border border-[#1e1f22] focus:border-[#5865F2] cursor-pointer"
                   >
                     {STANDUP_TEMPLATES.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -274,7 +288,6 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                     ))}
                   </select>
 
-                  {/* --- NEW: TEMPLATE PREVIEW BOX --- */}
                   {currentTemplateObj && currentTemplateObj.id !== "custom" && (
                     <div className="mt-3 p-3 bg-[#1e1f22] rounded-md border border-[#3f4147]">
                       <span className="text-[10px] text-[#99AAB5] font-bold uppercase tracking-widest mb-2 block">
@@ -317,14 +330,40 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                 </div>
 
                 <div>
+                  {/* UPDATED: Added Manual Refresh Button */}
                   <label
                     className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 flex 
                   justify-between items-center"
                   >
                     <span>Discord Server</span>
-                    <span className="normal-case font-medium text-[10px] text-[#5865F2]">
-                      Must invite bot to select
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => refetchGuilds()}
+                        title="Refresh server list"
+                        className={`text-[#99AAB5] hover:text-white transition-all cursor-pointer flex 
+                          items-center justify-center
+                          ${isFetchingGuilds ? "animate-spin text-[#5865F2]" : ""}`}
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 
+                            8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                      </button>
+                      <span className="normal-case font-medium text-[10px] text-[#5865F2]">
+                        Must invite bot to select
+                      </span>
+                    </div>
                   </label>
                   <div className="bg-[#1e1f22] rounded-md h-40 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {isLoadingGuilds ? (
@@ -583,7 +622,8 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isCreating}
-                className={`cursor-pointer bg-[#23a559] hover:bg-[#1d8a4a] px-8 py-2.5 rounded-md font-bold text-sm 
+                className={`cursor-pointer bg-[#23a559] hover:bg-[#1d8a4a] px-8 py-2.5 rounded-md 
+                  font-bold text-sm 
                 text-white transition-all shadow-lg ${isCreating ? "opacity-50" : ""}`}
               >
                 {isCreating ? "Creating..." : "Finish Setup"}

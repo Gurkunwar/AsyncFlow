@@ -39,13 +39,15 @@ func main() {
 	userSvc := &services.UserService{DB: db}
 	pollSvc := services.NewPollService(db, dg)
 
-	handler := bot.NewBotHandler(dg, rdb, db, standupSvc, pollSvc, userSvc)
+	apiServer := api.NewServer(db, dg, standupSvc, pollSvc)
+	handler := bot.NewBotHandler(dg, rdb, db, standupSvc, pollSvc, userSvc, api.NewHub().Broadcast)
 
 	standupSvc.TriggerFunc = handler.Standups.InitiateStandup
 
 	dg.AddHandler(handler.OnInteraction)
 	dg.AddHandler(handler.Polls.OnVoteAdd)
     dg.AddHandler(handler.Polls.OnVoteRemove)
+	dg.AddHandler(handler.HandleGuildCreate)
 
 	standupSvc.StartTimezoneWorker()
 
@@ -55,7 +57,6 @@ func main() {
 
 	bot.RegisterCommands(dg)
 
-	apiServer := api.NewServer(db, dg, standupSvc, pollSvc)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

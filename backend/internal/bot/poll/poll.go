@@ -24,6 +24,15 @@ func (h *PollHandler) OnVoteAdd(s *discordgo.Session, e *discordgo.MessagePollVo
 	if err != nil {
 		log.Printf("Failed to sync poll vote add: %v", err)
 	}
+
+	if h.Service.WSBroadcast != nil {
+        log.Println("⚡ Emitting live poll update to Web Dashboard...")
+        select {
+        case h.Service.WSBroadcast <- []byte(`{"type": "NEW_POLL_VOTE"}`):
+        default:
+            log.Println("⚠️ WS Broadcast channel blocked/full, skipping live update.")
+        }
+    }
 }
 
 func (h *PollHandler) OnVoteRemove(s *discordgo.Session, e *discordgo.MessagePollVoteRemove) {
@@ -31,4 +40,13 @@ func (h *PollHandler) OnVoteRemove(s *discordgo.Session, e *discordgo.MessagePol
 	if err != nil {
 		log.Printf("Failed to sync poll vote remove: %v", err)
 	}
+
+	if h.Service.WSBroadcast != nil {
+        log.Println("⚡ Emitting live poll update to Web Dashboard...")
+        select {
+        case h.Service.WSBroadcast <- []byte(`{"type": "NEW_POLL_VOTE"}`):
+        default:
+            log.Println("⚠️ WS Broadcast channel blocked/full, skipping live update.")
+        }
+    }
 }
