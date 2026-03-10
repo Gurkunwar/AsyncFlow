@@ -11,6 +11,7 @@ import {
   useToggleMemberMutation,
   useUpdateStandupMutation,
   useDeleteStandupMutation,
+  useTestStandupMutation, // <-- NEW: Imported test mutation
 } from "../../store/apiSlice";
 
 export default function ManageStandup() {
@@ -39,6 +40,9 @@ export default function ManageStandup() {
   const [updateStandupMutation, { isLoading: isSaving }] =
     useUpdateStandupMutation();
   const [deleteStandupMutation] = useDeleteStandupMutation();
+  
+  // <-- NEW: Test mutation hook
+  const [testStandupMutation, { isLoading: isTesting }] = useTestStandupMutation();
 
   const toggleMember = async (userId, isCurrentlyMember) => {
     try {
@@ -70,6 +74,16 @@ export default function ManageStandup() {
       navigate("/standups");
     } catch (err) {
       alert("Failed to delete standup.");
+    }
+  };
+
+  // <-- NEW: Test run function
+  const triggerTestRun = async () => {
+    try {
+      await testStandupMutation(id).unwrap();
+      alert("Test run sent! Check your Discord DMs.");
+    } catch (err) {
+      alert("Failed to send test run. Is the bot online?");
     }
   };
 
@@ -135,6 +149,8 @@ export default function ManageStandup() {
             onSave={updateStandup}
             onDelete={deleteStandup}
             isSaving={isSaving}
+            onTestRun={triggerTestRun} 
+            isTesting={isTesting} 
           />
         )}
         {activeTab === "history" && (

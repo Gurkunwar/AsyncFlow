@@ -18,6 +18,8 @@ export default function SettingsTab({
   onSave,
   onDelete,
   isSaving,
+  onTestRun,
+  isTesting,
 }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -327,6 +329,7 @@ export default function SettingsTab({
           )}
         </div>
 
+        {/* --- NEW FOOTER: Includes Test Run Button --- */}
         <div className="pt-4 border-t border-[#3f4147] flex justify-between items-center">
           <button
             type="button"
@@ -344,18 +347,34 @@ export default function SettingsTab({
           >
             Delete Standup
           </button>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className={`cursor-pointer px-6 py-2.5 rounded-md font-bold text-sm text-white 
-              transition-all shadow-lg ${
-                isSaving
-                  ? "bg-[#404249] cursor-not-allowed"
-                  : "bg-[#23a559] hover:bg-[#1d8a4a] transform active:scale-95"
-              }`}
-          >
-            {isSaving ? "Saving..." : "Save Changes"}
-          </button>
+          
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onTestRun}
+              disabled={isTesting || isSaving}
+              className={`cursor-pointer px-4 py-2.5 rounded-md font-bold text-sm text-white 
+                transition-all shadow-md flex items-center gap-2 ${
+                  isTesting || isSaving
+                    ? "bg-[#404249] cursor-not-allowed opacity-70"
+                    : "bg-[#5865F2] hover:bg-[#4752C4] transform active:scale-95"
+                }`}
+            >
+              {isTesting ? "Sending..." : "🧪 Test Run"}
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || isTesting}
+              className={`cursor-pointer px-6 py-2.5 rounded-md font-bold text-sm text-white 
+                transition-all shadow-lg ${
+                  isSaving || isTesting
+                    ? "bg-[#404249] cursor-not-allowed"
+                    : "bg-[#23a559] hover:bg-[#1d8a4a] transform active:scale-95"
+                }`}
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

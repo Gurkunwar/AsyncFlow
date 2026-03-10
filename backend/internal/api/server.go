@@ -48,6 +48,7 @@ func (s *Server) Routes() {
 	registerProtected("/api/standups/remove-member", s.HandleRemoveStandupMember)
 	registerProtected("/api/standups/get", s.HandleGetStandup)
 	registerProtected("/api/standups/history", s.HandleGetStandupHistory)
+	registerProtected("/api/standups/test", s.HandleTestRunStandup)
 
 	registerProtected("/api/managed-polls", s.HandleGetManagedPolls)
 	registerProtected("/api/polls/get", s.HandleGetPoll)

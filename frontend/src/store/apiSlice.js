@@ -89,6 +89,13 @@ export const asyncFlowApi = createApi({
       }),
       invalidatesTags: ["ManagedStandups"],
     }),
+    testStandup: builder.mutation({
+      query: (id) => ({
+        url: `standups/test`,
+        method: "POST",
+        body: { standup_id: parseInt(id) },
+      }),
+    }),
 
     getManagedPolls: builder.query({
       query: ({ filter, page, limit = 12, search = "", guild_id = "" }) =>
@@ -160,6 +167,7 @@ export const {
   useUpdateStandupMutation,
   useDeleteStandupMutation,
   useGetManagedStandupsQuery,
+  useTestStandupMutation,
 
   useGetManagedPollsQuery,
   useGetPollByIdQuery,

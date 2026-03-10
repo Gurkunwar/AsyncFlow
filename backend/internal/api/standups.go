@@ -223,9 +223,9 @@ func (s *Server) HandleUpdateStandup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := s.StandupService.SyncRoleMembers(standup.ID)
-    if err != nil {
-        log.Printf("Warning: Role sync failed: %v", err)
-    }
+	if err != nil {
+		log.Printf("Warning: Role sync failed: %v", err)
+	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -391,4 +391,30 @@ func (s *Server) HandleGetStandup(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(standup)
+}
+
+func (s *Server) HandleTestRunStandup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var reqBody struct {
+		StandupID uint `json:"standup_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "Invalid Payload", http.StatusBadRequest)
+		return
+	}
+
+	managerID := r.Context().Value(UserIDKey).(string)
+
+	if err := s.StandupService.TestRun(reqBody.StandupID, managerID); err != nil {
+		http.Error(w, "Failed to trigger test run: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Test run initiated! Check your Discord DMs."})
 }

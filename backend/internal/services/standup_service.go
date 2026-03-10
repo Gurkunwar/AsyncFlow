@@ -188,3 +188,25 @@ func (s *StandupService) SyncRoleMembers(standupID uint) error {
     
     return nil
 }
+
+func (s *StandupService) TestRun(standupID uint, managerID string) error {
+    var standup models.Standup 
+    if err := s.DB.First(&standup, standupID).Error; err != nil {
+        return err
+    }
+
+    if standup.ManagerID != managerID {
+		return errors.New("unauthorized")
+	}
+
+    if s.TriggerFunc != nil {
+		if dmChannel, err := s.Session.UserChannelCreate(managerID); err == nil {
+			s.Session.ChannelMessageSend(dmChannel.ID, 
+                "🧪 **TEST RUN INITIATED** 🧪\nHere is a preview of your daily prompt:")
+		}
+
+		return s.TriggerFunc(s.Session, managerID, standup.GuildID, standup.ReportChannelID, standup.ID)
+	}
+
+	return errors.New("Trigger function not configured on server start")
+}
