@@ -5,11 +5,13 @@ import App from './App.jsx'
 
 import { Provider } from "react-redux";
 import { store } from "./store/store";
+import { Analytics } from '@vercel/analytics/react'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
       <App />
+      <Analytics />
     </Provider>
   </StrictMode>,
 )

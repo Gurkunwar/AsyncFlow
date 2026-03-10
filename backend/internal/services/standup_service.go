@@ -1,13 +1,14 @@
 package services
 
 import (
-	"slices"
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"time"
 	_ "time/tzdata"
 
+	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
 	"github.com/Gurkunwar/asyncflow/internal/models"
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
@@ -189,24 +190,26 @@ func (s *StandupService) SyncRoleMembers(standupID uint) error {
     return nil
 }
 
-func (s *StandupService) TestRun(standupID uint, managerID string) error {
-    var standup models.Standup 
-    if err := s.DB.First(&standup, standupID).Error; err != nil {
-        return err
+func (s *StandupService) TestRun(standupID uint, userID string) error {
+	var standup models.Standup
+	if err := s.DB.First(&standup, standupID).Error; err != nil {
+		return err
+	}
+
+	isAuthorized := standup.ManagerID == userID || utils.HasAdminPermissions(s.Session, userID, standup.ReportChannelID)
+
+    if !isAuthorized {
+        return errors.New("unauthorized: you must be the standup manager or a server admin")
     }
 
-    if standup.ManagerID != managerID {
-		return errors.New("unauthorized")
-	}
-
-    if s.TriggerFunc != nil {
-		if dmChannel, err := s.Session.UserChannelCreate(managerID); err == nil {
+	if s.TriggerFunc != nil {
+		if dmChannel, err := s.Session.UserChannelCreate(userID); err == nil {
 			s.Session.ChannelMessageSend(dmChannel.ID, 
-                "🧪 **TEST RUN INITIATED** 🧪\nHere is a preview of your daily prompt:")
+				"🧪 **TEST RUN INITIATED** 🧪\nHere is a preview of your daily prompt:")
 		}
 
-		return s.TriggerFunc(s.Session, managerID, standup.GuildID, standup.ReportChannelID, standup.ID)
+		return s.TriggerFunc(s.Session, userID, standup.GuildID, standup.ReportChannelID, standup.ID)
 	}
 
-	return errors.New("Trigger function not configured on server start")
+	return errors.New("trigger function not configured on server start")
 }

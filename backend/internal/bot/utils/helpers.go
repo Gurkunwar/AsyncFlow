@@ -38,6 +38,14 @@ func IsServerAdmin(intr *discordgo.InteractionCreate) bool {
 	return intr.Member.Permissions&discordgo.PermissionAdministrator != 0
 }
 
+func HasAdminPermissions(s *discordgo.Session, userID, channelID string) bool {
+    perms, err := s.UserChannelPermissions(userID, channelID)
+    if err != nil {
+        return false
+    }
+    return perms&discordgo.PermissionAdministrator != 0 || perms&discordgo.PermissionManageGuild != 0
+}
+
 func FormatLocalTime(dbTimeStr string, userTZ string) string {
 	if userTZ == "" {
 		return fmt.Sprintf("**%s (Your Local Time)**\n> ⚠️ *Wait! You haven't set a timezone yet. Run `/timezone` so this triggers at your actual morning!*", dbTimeStr)
