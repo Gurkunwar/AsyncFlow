@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 
 function NavItem({ to, icon, label, isCollapsed, onClick }) {
   return (
@@ -42,9 +42,12 @@ export default function Sidebar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/");
+    // FIX: Added a confirmation dialog before logging out
+    if (window.confirm("Are you sure you want to log out of AsyncFlow?")) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/");
+    }
   };
 
   const avatarUrl = userData.avatar
@@ -197,21 +200,31 @@ export default function Sidebar() {
           </nav>
         </div>
 
-        <div className="bg-[#232428] p-3 flex items-center justify-between shrink-0 min-h-16">
-          <div className="flex items-center gap-3 overflow-hidden">
+        <div
+          className={`bg-[#232428] p-3 flex items-center shrink-0 min-h-16 ${
+            effectiveIsCollapsed ? "justify-center" : "justify-between"
+          }`}
+        >
+          <Link
+            to="/settings"
+            onClick={() => setIsMobileOpen(false)}
+            className="flex items-center gap-3 overflow-hidden group rounded-md transition-colors hover:bg-[#2b2d31]
+             p-1 -ml-1 cursor-pointer"
+            title={effectiveIsCollapsed ? "Go to Settings" : ""}
+          >
             <img
               src={avatarUrl}
               alt="Avatar"
-              className="w-9 h-9 rounded-full shrink-0 border border-[#1e1f22]"
+              className="w-9 h-9 rounded-full shrink-0 border border-[#1e1f22] group-hover:border-[#5865F2] transition-colors"
             />
             {!effectiveIsCollapsed && (
               <div className="flex flex-col truncate">
-                <span className="text-sm font-bold truncate text-white">
+                <span className="text-sm font-bold truncate text-white group-hover:text-[#5865F2] transition-colors">
                   {userData.username || "Guest"}
                 </span>
               </div>
             )}
-          </div>
+          </Link>
 
           {!effectiveIsCollapsed && (
             <button

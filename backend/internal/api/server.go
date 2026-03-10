@@ -24,38 +24,41 @@ func NewServer(db *gorm.DB,
 	return &Server{DB: db, Session: session, StandupService: standupService, PollService: pollService}
 }
 
+func registerProtected(path string, handler http.HandlerFunc) {
+	http.HandleFunc(path, RateLimitMiddleware(AuthMiddleware(handler)))
+}
+
 func (s *Server) Routes() {
-	http.HandleFunc("/", s.handleRoot)
+	http.HandleFunc("/", RateLimitMiddleware(s.handleRoot))
+	http.HandleFunc("/api/auth/discord", RateLimitMiddleware(HandleDiscordLogin(s.DB)))
 
-	http.HandleFunc("/api/auth/discord", HandleDiscordLogin(s.DB))
-	http.HandleFunc("/api/managed-standups", AuthMiddleware(s.HandleGetManagedStandups(s.Session)))
+	registerProtected("/api/dashboard/stats", s.HandleGetDashboardStats)
+	registerProtected("/api/dashboard/poll-stats", s.HandleGetPollStats)
+	
+	registerProtected("/api/user-guilds", s.HandleGetUserGuilds)
+	registerProtected("/api/guild-channels", s.HandleGetGuildChannels)
+	registerProtected("/api/guild-members", s.HandleGetGuildMembers)
+	registerProtected("/api/guilds/roles", s.HandleGetGuildRoles)
+	
+	registerProtected("/api/managed-standups", s.HandleGetManagedStandups(s.Session))
+	registerProtected("/api/standups/create", s.HandleCreateStandup)
+	registerProtected("/api/standups/update", s.HandleUpdateStandup)
+	registerProtected("/api/standups/delete", s.HandleDeleteStandup)
+	registerProtected("/api/standups/add-member", s.HandleAddStandupMember)
+	registerProtected("/api/standups/remove-member", s.HandleRemoveStandupMember)
+	registerProtected("/api/standups/get", s.HandleGetStandup)
+	registerProtected("/api/standups/history", s.HandleGetStandupHistory)
 
-	http.HandleFunc("/api/dashboard/stats", AuthMiddleware(s.HandleGetDashboardStats))
-	http.HandleFunc("/api/dashboard/poll-stats", AuthMiddleware(s.HandleGetPollStats))
+	registerProtected("/api/managed-polls", s.HandleGetManagedPolls)
+	registerProtected("/api/polls/get", s.HandleGetPoll)
+	registerProtected("/api/polls/create", s.HandleCreateWebPoll)
+	registerProtected("/api/polls/delete", s.HandleDeleteWebPoll)
+	registerProtected("/api/polls/end", s.HandleEndWebPoll)
+	registerProtected("/api/polls/export", s.HandleExportWebPoll)
+	registerProtected("/api/polls/history", s.HandleGetPollHistory)
 
-	http.HandleFunc("/api/user-guilds", AuthMiddleware(s.HandleGetUserGuilds))
-	http.HandleFunc("/api/guild-channels", AuthMiddleware(s.HandleGetGuildChannels))
-	http.HandleFunc("/api/guild-members", AuthMiddleware(s.HandleGetGuildMembers))
-    http.HandleFunc("/api/guilds/roles", AuthMiddleware(s.HandleGetGuildRoles))
-
-	http.HandleFunc("/api/standups/create", AuthMiddleware(s.HandleCreateStandup))
-	http.HandleFunc("/api/standups/update", AuthMiddleware(s.HandleUpdateStandup))
-	http.HandleFunc("/api/standups/delete", AuthMiddleware(s.HandleDeleteStandup))
-	http.HandleFunc("/api/standups/add-member", AuthMiddleware(s.HandleAddStandupMember))
-	http.HandleFunc("/api/standups/remove-member", AuthMiddleware(s.HandleRemoveStandupMember))
-	http.HandleFunc("/api/standups/get", AuthMiddleware(s.HandleGetStandup))
-	http.HandleFunc("/api/standups/history", AuthMiddleware(s.HandleGetStandupHistory))
-
-	http.HandleFunc("/api/managed-polls", AuthMiddleware(s.HandleGetManagedPolls))
-	http.HandleFunc("/api/polls/get", AuthMiddleware(s.HandleGetPoll))
-	http.HandleFunc("/api/polls/create", AuthMiddleware(s.HandleCreateWebPoll))
-	http.HandleFunc("/api/polls/delete", AuthMiddleware(s.HandleDeleteWebPoll))
-	http.HandleFunc("/api/polls/end", AuthMiddleware(s.HandleEndWebPoll))
-	http.HandleFunc("/api/polls/export", AuthMiddleware(s.HandleExportWebPoll))
-	http.HandleFunc("/api/polls/history", AuthMiddleware(s.HandleGetPollHistory))
-
-	http.HandleFunc("/api/user/settings/get", AuthMiddleware(s.HandleGetUserSettings))
-    http.HandleFunc("/api/user/settings/update", AuthMiddleware(s.HandleUpdateUserSettings))
+	registerProtected("/api/user/settings/get", s.HandleGetUserSettings)
+	registerProtected("/api/user/settings/update", s.HandleUpdateUserSettings)
 }
 
 func (s *Server) Start(port string) {

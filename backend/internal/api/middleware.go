@@ -2,15 +2,51 @@ package api
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/time/rate"
 )
 
 type contextKey string
 const UserIDKey contextKey = "user_id"
+
+var clients = make(map[string]*rate.Limiter)
+var mu sync.Mutex
+
+func getVisitor(ip string) *rate.Limiter {
+	mu.Lock()
+	defer mu.Unlock()
+
+	limiter, exists := clients[ip]
+	if !exists {
+		limiter = rate.NewLimiter(5, 10)
+		clients[ip] = limiter
+	}
+
+	return limiter
+}
+
+func RateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			ip = r.RemoteAddr
+		}
+
+		limiter := getVisitor(ip)
+		if !limiter.Allow() {
+			http.Error(w, "Rate limit exceeded. Please slow down.", http.StatusTooManyRequests)
+			return
+		}
+
+		next(w, r)
+	}
+}
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

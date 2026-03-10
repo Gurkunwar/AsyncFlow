@@ -68,10 +68,8 @@ export default function CreateStandupModal({ isOpen, onClose }) {
 
   const [isChannelDropdownOpen, setIsChannelDropdownOpen] = useState(false);
 
-  const {
-    data: guilds = [],
-    isLoading: isLoadingGuilds,
-  } = useGetUserGuildsQuery(undefined, { skip: !isOpen });
+  const { data: guilds = [], isLoading: isLoadingGuilds } =
+    useGetUserGuildsQuery(undefined, { skip: !isOpen });
   const { data: channels = [], isFetching: isFetchingChannels } =
     useGetGuildChannelsQuery(formData.guild_id, { skip: !formData.guild_id });
   const [createStandup, { isLoading: isCreating }] = useCreateStandupMutation();
@@ -104,7 +102,7 @@ export default function CreateStandupModal({ isOpen, onClose }) {
   const handleTemplateChange = (e) => {
     const tId = e.target.value;
     setSelectedTemplate(tId);
-    
+
     const template = STANDUP_TEMPLATES.find((t) => t.id === tId);
     if (template) {
       setFormData((prev) => ({
@@ -194,6 +192,11 @@ export default function CreateStandupModal({ isOpen, onClose }) {
     channels.find((c) => c.id === formData.report_channel_id)?.name ||
     "Select a channel...";
 
+  // Find the current template object so we can preview it
+  const currentTemplateObj = STANDUP_TEMPLATES.find(
+    (t) => t.id === selectedTemplate,
+  );
+
   const steps = [
     { num: 1, title: "Basics", desc: "Name & Location" },
     { num: 2, title: "Schedule", desc: "When to run it" },
@@ -244,7 +247,6 @@ export default function CreateStandupModal({ isOpen, onClose }) {
         {/* RIGHT CONTENT: Form Area */}
         <div className="flex-1 flex flex-col p-6 md:p-8 bg-[#313338]">
           <div className="flex-1">
-            
             {/* STEP 1: BASICS */}
             {currentStep === 1 && (
               <div className="space-y-6 animate-fade-in">
@@ -254,8 +256,10 @@ export default function CreateStandupModal({ isOpen, onClose }) {
 
                 {/* TEMPLATE SELECTOR */}
                 <div className="bg-[#2b2d31] p-4 rounded-lg border border-[#3f4147] shadow-inner mb-6">
-                  <label className="text-[11px] font-extrabold text-[#5865F2] uppercase tracking-wider mb-2 flex 
-                  items-center gap-2">
+                  <label
+                    className="text-[11px] font-extrabold text-[#5865F2] uppercase tracking-wider mb-2 flex 
+                  items-center gap-2"
+                  >
                     <span>⚡ Quick Start Template</span>
                   </label>
                   <select
@@ -269,6 +273,31 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                       </option>
                     ))}
                   </select>
+
+                  {/* --- NEW: TEMPLATE PREVIEW BOX --- */}
+                  {currentTemplateObj && currentTemplateObj.id !== "custom" && (
+                    <div className="mt-3 p-3 bg-[#1e1f22] rounded-md border border-[#3f4147]">
+                      <span className="text-[10px] text-[#99AAB5] font-bold uppercase tracking-widest mb-2 block">
+                        Preview Questions:
+                      </span>
+                      <ul className="text-xs text-white list-disc list-outside pl-4 space-y-1.5 opacity-90">
+                        {currentTemplateObj.questions.map((q, i) => (
+                          <li key={i}>{q}</li>
+                        ))}
+                      </ul>
+                      <p className="text-[10px] text-[#99AAB5] mt-3 italic">
+                        *You can edit these in Step 3.
+                      </p>
+                    </div>
+                  )}
+                  {currentTemplateObj && currentTemplateObj.id === "custom" && (
+                    <div className="mt-3 p-3 bg-[#1e1f22] rounded-md border border-[#3f4147]">
+                      <p className="text-xs text-[#99AAB5] italic text-center">
+                        You will write your own questions from scratch in Step
+                        3.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -342,7 +371,7 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                                   "width=500,height=700",
                                 );
                               }}
-                              className="text-[10px] px-3 py-1.5 rounded font-bold uppercase bg-[#23a559] 
+                              className="cursor-pointer text-[10px] px-3 py-1.5 rounded font-bold uppercase bg-[#23a559] 
                               hover:bg-[#1d8a4a] text-white shadow-sm transition-transform active:scale-95"
                             >
                               Invite Bot
