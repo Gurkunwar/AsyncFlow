@@ -1,22 +1,34 @@
 import React, { useState, useMemo } from "react";
 import { useGetHistoryQuery } from "../../../store/apiSlice";
 
-export default function HistoryTab({ standup, guildMembers }) {
+export default function HistoryTab({ standupId, standup, guildMembers }) {
   const [selectedUser, setSelectedUser] = useState("ALL");
   const [selectedDate, setSelectedDate] = useState("");
 
-  const sID = standup?.id || standup?.ID;
-  const { data: rawHistories = [], isLoading } = useGetHistoryQuery(sID, {
-    skip: !sID,
-  });
+  const sID = standupId || standup?.id || standup?.ID || "";
+  const shouldSkip = !sID || sID === "undefined";
+
+  // FIX: Pass an object { id: sID } so RTK Query extracts it correctly
+  const { data: rawData, isLoading } = useGetHistoryQuery(
+    { id: sID },
+    { skip: shouldSkip },
+  );
+
+  const rawHistories = rawData?.data || [];
 
   const validHistories = useMemo(() => {
-    return rawHistories.filter((h) => h.answers && h.answers.length > 0);
+    return rawHistories.filter((h) => {
+      const ans = h.Answers || h.answers;
+      return ans && ans.length > 0;
+    });
   }, [rawHistories]);
 
   const filteredHistories = validHistories.filter((h) => {
-    const matchUser = selectedUser === "ALL" || h.user_id === selectedUser;
-    const matchDate = selectedDate === "" || h.date === selectedDate;
+    const uid = h.UserID || h.user_id;
+    const d = h.Date || h.date;
+
+    const matchUser = selectedUser === "ALL" || uid === selectedUser;
+    const matchDate = selectedDate === "" || d === selectedDate;
     return matchUser && matchDate;
   });
 
@@ -52,7 +64,7 @@ export default function HistoryTab({ standup, guildMembers }) {
           >
             <option value="ALL">All Members</option>
             {standup?.participants?.map((p) => {
-              const uID = p.user_id || p.UserID;
+              const uID = p.UserID || p.user_id;
               const user = getUserInfo(uID);
               return (
                 <option key={uID} value={uID}>
@@ -83,10 +95,14 @@ export default function HistoryTab({ standup, guildMembers }) {
           </div>
         ) : (
           filteredHistories.map((log, index) => {
-            const user = getUserInfo(log.user_id);
+            const uID = log.UserID || log.user_id;
+            const d = log.Date || log.date;
+            const ans = log.Answers || log.answers;
+            const user = getUserInfo(uID);
+
             return (
               <div
-                key={log.ID || index}
+                key={log.ID || log.id || index}
                 className="bg-[#2b2d31] rounded-xl border border-[#1e1f22] overflow-hidden shadow-sm 
                 hover:border-[#3f4147] transition-colors"
               >
@@ -114,15 +130,14 @@ export default function HistoryTab({ standup, guildMembers }) {
                     className="text-xs font-bold text-[#99AAB5] bg-[#1e1f22] px-2.5 py-1 rounded border 
                   border-[#3f4147]/50"
                   >
-                    {log.date}
+                    {d}
                   </div>
                 </div>
                 <div className="p-5 space-y-4">
-                  {log.answers.map((answer, i) => {
-                    const question =
-                      standup?.questions?.[i] ||
-                      standup?.Questions?.[i] ||
-                      `Question ${i + 1}`;
+                  {ans.map((answer, i) => {
+                    const qList =
+                      standup?.questions || standup?.Questions || [];
+                    const question = qList[i] || `Question ${i + 1}`;
                     return (
                       <div key={i}>
                         <h4

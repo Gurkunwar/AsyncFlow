@@ -25,7 +25,7 @@ export default function ManageStandup() {
 
   const { data: guildMembers = [], isLoading: isMembersLoading } =
     useGetGuildMembersQuery(standup?.guild_id, { skip: skipSecondaryFetches });
-  
+
   const { data: channels = [] } = useGetGuildChannelsQuery(standup?.guild_id, {
     skip: skipSecondaryFetches,
   });
@@ -40,9 +40,10 @@ export default function ManageStandup() {
   const [updateStandupMutation, { isLoading: isSaving }] =
     useUpdateStandupMutation();
   const [deleteStandupMutation] = useDeleteStandupMutation();
-  
+
   // <-- NEW: Test mutation hook
-  const [testStandupMutation, { isLoading: isTesting }] = useTestStandupMutation();
+  const [testStandupMutation, { isLoading: isTesting }] =
+    useTestStandupMutation();
 
   const toggleMember = async (userId, isCurrentlyMember) => {
     try {
@@ -149,12 +150,16 @@ export default function ManageStandup() {
             onSave={updateStandup}
             onDelete={deleteStandup}
             isSaving={isSaving}
-            onTestRun={triggerTestRun} 
-            isTesting={isTesting} 
+            onTestRun={triggerTestRun}
+            isTesting={isTesting}
           />
         )}
         {activeTab === "history" && (
-          <HistoryTab standup={standup} guildMembers={guildMembers} />
+          <HistoryTab
+            standupId={id}
+            standup={standup}
+            guildMembers={guildMembers}
+          />
         )}
       </div>
     </>
