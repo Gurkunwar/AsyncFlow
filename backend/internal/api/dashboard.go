@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Gurkunwar/asyncflow/internal/api/dtos"
@@ -61,7 +62,6 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// 3. Responses per team (REPLACED LOOP WITH ONE AGGREGATE QUERY)
 	s.DB.Table("standup_histories").
 		Select("standups.name as team_name, count(standup_histories.id) as count").
 		Joins("JOIN standups ON standups.id = standup_histories.standup_id").
@@ -69,66 +69,80 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 		Group("standups.name").
 		Scan(&stats.BreakdownData)
 
-	// 4. Latest Updates (REMOVED EXTERNAL NETWORK CALLS)
 	var recentHistories []models.StandupHistory
 	s.DB.Preload("Standup").
 		Joins("JOIN standups ON standups.id = standup_histories.standup_id").
 		Where("standups.manager_id = ?", managerID).
 		Order("standup_histories.created_at desc").
-		Limit(15).
+		Limit(100).
 		Find(&recentHistories)
 
+	keywords := []string{"blocked", "stuck", "issue", "help", "failing", "error", "bug", "can't", "waiting"}
+
 	for _, h := range recentHistories {
-		userName := "User " + h.UserID[len(h.UserID)-4:]
-		avatar := "0"
+		if len(stats.Blockers) >= 15 {
+			break
+		}
 
-		// Step 1: Check Local DB First (0ms latency)
-		var profile models.UserProfile
-		err := s.DB.Where("user_id = ?", h.UserID).First(&profile).Error
+		if len(h.Answers) > 0 && h.Answers[0] == "Skipped / OOO" {
+			continue
+		}
 
-		if err == nil {
-			// Found in DB!
-			userName = profile.Username
-			avatar = profile.Avatar
-		} else {
-			// Step 2: Not in DB? Check Discord Cache or API
-			member, err := s.Session.State.Member(h.Standup.GuildID, h.UserID)
-			if err != nil {
-				// If not in cache, hit the network (Slow, but only happens once)
-				member, _ = s.Session.GuildMember(h.Standup.GuildID, h.UserID)
-			}
+		isBlocker := false
+		blockerText := ""
 
-			if member != nil && member.User != nil {
-				userName = member.User.Username
-				if member.User.Avatar != "" {
-					avatar = member.User.Avatar
-				} else {
-					avatar = "0"
+		for _, ans := range h.Answers {
+			lowerAns := strings.ToLower(ans)
+			for _, kw := range keywords {
+				if strings.Contains(lowerAns, kw) {
+					isBlocker = true
+					blockerText = ans
+					break
 				}
-
-				// Step 3: SAVE to DB so it's 0ms next time (Upsert)
-				s.DB.Where(models.UserProfile{UserID: h.UserID}).
-					Assign(models.UserProfile{
-						Username: userName,
-						Avatar:   avatar,
-					}).FirstOrCreate(&models.UserProfile{})
+			}
+			if isBlocker {
+				break
 			}
 		}
 
-		taskText := "Submitted daily report"
-		if len(h.Answers) > 0 && h.Answers[0] != "" {
-			taskText = h.Answers[0]
-		}
+		if isBlocker {
+			userName := "User " + h.UserID[len(h.UserID)-4:]
+			avatar := "0"
 
-		stats.Blockers = append(stats.Blockers, dtos.BlockerDTO{
-			ID:        h.ID,
-			UserID:    h.UserID,
-			User:      userName,
-			Avatar:    avatar,
-			Team:      h.Standup.Name,
-			Task:      taskText,
-			CreatedAt: h.CreatedAt,
-		})
+			var profile models.UserProfile
+			if err := s.DB.Where("user_id = ?", h.UserID).First(&profile).Error; err == nil {
+				userName = profile.Username
+				avatar = profile.Avatar
+			} else {
+				member, err := s.Session.State.Member(h.Standup.GuildID, h.UserID)
+				if err != nil {
+					member, _ = s.Session.GuildMember(h.Standup.GuildID, h.UserID)
+				}
+				if member != nil && member.User != nil {
+					userName = member.User.Username
+					if member.User.Avatar != "" {
+						avatar = member.User.Avatar
+					}
+					s.DB.Where(models.UserProfile{UserID: h.UserID}).
+						Assign(models.UserProfile{Username: userName, Avatar: avatar}).
+						FirstOrCreate(&models.UserProfile{})
+				}
+			}
+
+			if len(blockerText) > 80 {
+				blockerText = blockerText[:77] + "..."
+			}
+
+			stats.Blockers = append(stats.Blockers, dtos.BlockerDTO{
+				ID:        h.ID,
+				UserID:    h.UserID,
+				User:      userName,
+				Avatar:    avatar,
+				Team:      h.Standup.Name,
+				Task:      blockerText,
+				CreatedAt: h.CreatedAt,
+			})
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -201,7 +215,7 @@ func (s *Server) HandleGetPollStats(w http.ResponseWriter, r *http.Request) {
 		Scan(&stats.TopPolls)
 
 	var recentPolls []models.Poll
-	s.DB.Where("creator_id = ?", managerID).Order("created_at desc").Limit(15).Find(&recentPolls)
+	s.DB.Where("creator_id = ? AND is_active = ?", managerID, true).Order("created_at desc").Limit(15).Find(&recentPolls)
 
 	for _, p := range recentPolls {
 		stats.RecentPolls = append(stats.RecentPolls, dtos.RecentPollDTO{

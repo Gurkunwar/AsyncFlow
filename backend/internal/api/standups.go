@@ -308,6 +308,7 @@ func (s *Server) HandleGetStandupHistory(w http.ResponseWriter, r *http.Request)
 			Avatar:    profile.Avatar,
 			Date:      h.Date,
 			Answers:   h.Answers,
+			IsSkipped: h.IsSkipped,
 			CreatedAt: h.CreatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}

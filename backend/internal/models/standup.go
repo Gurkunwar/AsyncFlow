@@ -25,6 +25,7 @@ type StandupHistory struct {
 	Standup   Standup  `gorm:"foreignKey:StandupID" json:"standup"`
 	Date      string   `gorm:"index" json:"date"`
 	Answers   []string `gorm:"type:text;serializer:json" json:"answers"`
+	IsSkipped bool     `gorm:"default:false" json:"is_skipped"`
 }
 
 type StandupState struct {

@@ -67,16 +67,24 @@ func (h *StandupHandler) handleHistory(session *discordgo.Session, intr *discord
     for _, hist := range histories {
         var fields []*discordgo.MessageEmbedField
 
-        for i, answer := range hist.Answers {
-            questionText := "Update"
-            if i < len(standup.Questions) {
-                questionText = standup.Questions[i]
-            }
+        if hist.IsSkipped {
             fields = append(fields, &discordgo.MessageEmbedField{
-                Name:   questionText,
-                Value:  "👉 " + answer,
+                Name:   "Status",
+                Value:  "⏭️ Skipped / Out of Office",
                 Inline: false,
             })
+        } else {
+            for i, answer := range hist.Answers {
+                questionText := "Update"
+                if i < len(standup.Questions) {
+                    questionText = standup.Questions[i]
+                }
+                fields = append(fields, &discordgo.MessageEmbedField{
+                    Name:   questionText,
+                    Value:  "👉 " + answer,
+                    Inline: false,
+                })
+            }
         }
 
         embeds = append(embeds, &discordgo.MessageEmbed{

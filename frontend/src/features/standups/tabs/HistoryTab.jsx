@@ -7,21 +7,13 @@ export default function HistoryTab({ standupId, standup, guildMembers }) {
 
   const sID = standupId || standup?.id || standup?.ID || "";
   const shouldSkip = !sID || sID === "undefined";
-
-  // FIX: Pass an object { id: sID } so RTK Query extracts it correctly
   const { data: rawData, isLoading } = useGetHistoryQuery(
     { id: sID },
-    { skip: shouldSkip },
+    { skip: shouldSkip }
   );
 
   const rawHistories = rawData?.data || [];
-
-  const validHistories = useMemo(() => {
-    return rawHistories.filter((h) => {
-      const ans = h.Answers || h.answers;
-      return ans && ans.length > 0;
-    });
-  }, [rawHistories]);
+  const validHistories = rawHistories; 
 
   const filteredHistories = validHistories.filter((h) => {
     const uid = h.UserID || h.user_id;
@@ -97,8 +89,11 @@ export default function HistoryTab({ standupId, standup, guildMembers }) {
           filteredHistories.map((log, index) => {
             const uID = log.UserID || log.user_id;
             const d = log.Date || log.date;
-            const ans = log.Answers || log.answers;
+            const ans = log.Answers || log.answers || [];
             const user = getUserInfo(uID);
+
+            // 🚀 PROPER CHECK: Uses the boolean, but falls back to the magic string for older records
+            const isSkipped = log.is_skipped || (ans.length > 0 && ans[0] === "Skipped / OOO");
 
             return (
               <div
@@ -112,7 +107,7 @@ export default function HistoryTab({ standupId, standup, guildMembers }) {
                       <img
                         src={user.avatar}
                         alt="avatar"
-                        className="w-8 h-8 rounded-full shadow-sm"
+                        className={`w-8 h-8 rounded-full shadow-sm ${isSkipped ? "opacity-50 grayscale" : ""}`}
                       />
                     ) : (
                       <div
@@ -122,9 +117,18 @@ export default function HistoryTab({ standupId, standup, guildMembers }) {
                         {user.username.charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <span className="font-bold text-white text-sm">
+                    <span
+                      className={`font-bold text-sm ${isSkipped ? "text-[#99AAB5] line-through" : "text-white"}`}
+                    >
                       {user.username}
                     </span>
+
+                    {isSkipped && (
+                      <span className="text-[9px] font-bold text-[#da373c] bg-[#da373c]/20 px-1.5 py-0.5 
+                      rounded uppercase tracking-widest ml-2">
+                        Skipped
+                      </span>
+                    )}
                   </div>
                   <div
                     className="text-xs font-bold text-[#99AAB5] bg-[#1e1f22] px-2.5 py-1 rounded border 
@@ -133,34 +137,45 @@ export default function HistoryTab({ standupId, standup, guildMembers }) {
                     {d}
                   </div>
                 </div>
-                <div className="p-5 space-y-4">
-                  {ans.map((answer, i) => {
-                    const qList =
-                      standup?.questions || standup?.Questions || [];
-                    const question = qList[i] || `Question ${i + 1}`;
-                    return (
-                      <div key={i}>
-                        <h4
-                          className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-1.5 flex 
-                        items-center gap-2"
-                        >
-                          <span
-                            className="bg-[#1e1f22] text-[#5865F2] w-4 h-4 flex items-center justify-center 
-                          rounded-full text-[9px]"
-                          >
-                            {i + 1}
-                          </span>
-                          {question}
-                        </h4>
-                        <p
-                          className="text-[#dcddde] text-sm leading-relaxed bg-[#1e1f22] p-3 rounded-md border 
-                        border-[#3f4147]/30 wrap-break-word whitespace-pre-wrap"
-                        >
-                          {answer}
-                        </p>
-                      </div>
-                    );
-                  })}
+
+                <div className="p-5">
+                  {isSkipped ? (
+                    <div className="flex items-center justify-center py-4 text-[#99AAB5] italic 
+                    bg-[#1e1f22]/50 rounded-md border border-[#3f4147]/20 border-dashed">
+                      <span className="mr-2">⏭️</span> User indicated they are
+                      out of office or skipping today's update.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {ans.map((answer, i) => {
+                        const qList =
+                          standup?.questions || standup?.Questions || [];
+                        const question = qList[i] || `Question ${i + 1}`;
+                        return (
+                          <div key={i}>
+                            <h4
+                              className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-1.5 flex 
+                            items-center gap-2"
+                            >
+                              <span
+                                className="bg-[#1e1f22] text-[#5865F2] w-4 h-4 flex items-center justify-center 
+                              rounded-full text-[9px]"
+                              >
+                                {i + 1}
+                              </span>
+                              {question}
+                            </h4>
+                            <p
+                              className="text-[#dcddde] text-sm leading-relaxed bg-[#1e1f22] p-3 rounded-md border 
+                            border-[#3f4147]/30 wrap-break-word whitespace-pre-wrap"
+                            >
+                              {answer}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );

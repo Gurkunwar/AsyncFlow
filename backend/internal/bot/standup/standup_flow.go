@@ -343,44 +343,45 @@ func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupI
 }
 
 func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
-	intr *discordgo.InteractionCreate, standupID uint) {
-	userID := utils.ExtractUserID(intr)
+    intr *discordgo.InteractionCreate, standupID uint) {
+    userID := utils.ExtractUserID(intr)
 
-	var standup models.Standup
-	if err := h.DB.First(&standup, standupID).Error; err != nil {
-		utils.UpdateMessage(session, intr, "❌ Standup not found. It may have been deleted.", nil)
-		return
-	}
+    var standup models.Standup
+    if err := h.DB.First(&standup, standupID).Error; err != nil {
+        utils.UpdateMessage(session, intr, "❌ Standup not found. It may have been deleted.", nil)
+        return
+    }
 
-	userProfile, userName, avatarURL := h.syncDiscordProfile(session, userID)
+    userProfile, userName, avatarURL := h.syncDiscordProfile(session, userID)
 
-	localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
+    localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
 
-	history := models.StandupHistory{
-		UserID:    userID,
-		StandupID: standupID,
-		Date:      localToday,
-		Answers:   []string{"Skipped / OOO"},
-	}
-	h.DB.Create(&history)
+    history := models.StandupHistory{
+        UserID:    userID,
+        StandupID: standupID,
+        Date:      localToday,
+        Answers:   []string{}, 
+        IsSkipped: true,
+    }
+    h.DB.Create(&history)
 
-	embed := &discordgo.MessageEmbed{
-		Author: &discordgo.MessageEmbedAuthor{
-			Name:    fmt.Sprintf("%s's Standup", userName),
-			IconURL: avatarURL,
-		},
-		Title:       fmt.Sprintf("⏭️ %s Update (Skipped)", standup.Name),
-		Description: fmt.Sprintf("<@%s> skipped their standup today.", userID),
-		Color:       0x808080,
-		Timestamp:   time.Now().Format(time.RFC3339),
-	}
+    embed := &discordgo.MessageEmbed{
+        Author: &discordgo.MessageEmbedAuthor{
+            Name:    fmt.Sprintf("%s's Standup", userName),
+            IconURL: avatarURL,
+        },
+        Title:       fmt.Sprintf("⏭️ %s Update (Skipped)", standup.Name),
+        Description: fmt.Sprintf("<@%s> skipped their standup today.", userID),
+        Color:       0x808080,
+        Timestamp:   time.Now().Format(time.RFC3339),
+    }
 
-	h.sendThreadedReport(session, standup.ID, standup.ReportChannelID, standup.Name, userID, embed)
+    h.sendThreadedReport(session, standup.ID, standup.ReportChannelID, standup.Name, userID, embed)
 
-	utils.UpdateMessage(session, intr,
-		"✅ You have successfully skipped today's standup. Your team has been notified!", nil)
+    utils.UpdateMessage(session, intr,
+        "✅ You have successfully skipped today's standup. Your team has been notified!", nil)
 
-	if h.StandupService.WSBroadcast != nil {
+    if h.StandupService.WSBroadcast != nil {
         select {
         case h.StandupService.WSBroadcast <- []byte(`{"type": "NEW_STANDUP_REPORT"}`):
         default:
@@ -390,57 +391,57 @@ func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 }
 
 func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.StandupState) {
-	var standup models.Standup
-	result := h.DB.First(&standup, state.StandupID)
+    var standup models.Standup
+    result := h.DB.First(&standup, state.StandupID)
 
-	if result.Error != nil || standup.ReportChannelID == "" {
-		log.Printf("Could not find standup config for ID %d", state.StandupID)
-		return
-	}
+    if result.Error != nil || standup.ReportChannelID == "" {
+        log.Printf("Could not find standup config for ID %d", state.StandupID)
+        return
+    }
 
-	userProfile, userName, avatarURL := h.syncDiscordProfile(s, state.UserID)
+    userProfile, userName, avatarURL := h.syncDiscordProfile(s, state.UserID)
 
-	localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
+    localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
+    history := models.StandupHistory{
+        UserID:    state.UserID,
+        StandupID: state.StandupID,
+        Date:      localToday,
+        Answers:   state.Answers,
+        IsSkipped: false,
+    }
 
-	history := models.StandupHistory{
-		UserID:    state.UserID,
-		StandupID: state.StandupID,
-		Date:      localToday,
-		Answers:   state.Answers,
-	}
+    if err := h.DB.Create(&history).Error; err != nil {
+        log.Println("❌ Error saving standup history to database:", err)
+    }
 
-	if err := h.DB.Create(&history).Error; err != nil {
-		log.Println("❌ Error saving standup history to database:", err)
-	}
+    var fields []*discordgo.MessageEmbedField
+    for i, answer := range state.Answers {
+        questionText := "Update"
+        if i < len(standup.Questions) {
+            questionText = standup.Questions[i]
+        }
+        fields = append(fields, &discordgo.MessageEmbedField{
+            Name:   questionText,
+            Value:  "👉 " + answer,
+            Inline: false,
+        })
+    }
 
-	var fields []*discordgo.MessageEmbedField
-	for i, answer := range state.Answers {
-		questionText := "Update"
-		if i < len(standup.Questions) {
-			questionText = standup.Questions[i]
-		}
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   questionText,
-			Value:  "👉 " + answer,
-			Inline: false,
-		})
-	}
+    embed := &discordgo.MessageEmbed{
+        Author: &discordgo.MessageEmbedAuthor{
+            Name:    fmt.Sprintf("%s's Standup", userName),
+            IconURL: avatarURL,
+        },
+        Title:       fmt.Sprintf("🚀 %s Update", standup.Name),
+        Description: fmt.Sprintf("Progress report from **%s**", userName),
+        Color:       0x5865F2,
+        Fields:      fields,
+        Timestamp:   time.Now().Format(time.RFC3339),
+    }
 
-	embed := &discordgo.MessageEmbed{
-		Author: &discordgo.MessageEmbedAuthor{
-			Name:    fmt.Sprintf("%s's Standup", userName),
-			IconURL: avatarURL,
-		},
-		Title:       fmt.Sprintf("🚀 %s Update", standup.Name),
-		Description: fmt.Sprintf("Progress report from **%s**", userName),
-		Color:       0x5865F2,
-		Fields:      fields,
-		Timestamp:   time.Now().Format(time.RFC3339),
-	}
+    h.sendThreadedReport(s, standup.ID, standup.ReportChannelID, standup.Name, state.UserID, embed)
 
-	h.sendThreadedReport(s, standup.ID, standup.ReportChannelID, standup.Name, state.UserID, embed)
-
-	if h.StandupService.WSBroadcast != nil {
+    if h.StandupService.WSBroadcast != nil {
         log.Println("⚡ Emitting live standup update to Web Dashboard...")
         
         select {

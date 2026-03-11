@@ -109,14 +109,19 @@ export default function History() {
         standupConfig.questions || standupConfig.Questions || [];
       const headers = ["Date", "User", "Status", ...questions];
       const rows = historyData.map((row) => {
+        // 🚀 PROPER CHECK for CSV Export
         const isSkipped =
-          row.answers.length > 0 && row.answers[0] === "Skipped / OOO";
+          row.is_skipped ||
+          (row.answers &&
+            row.answers.length > 0 &&
+            row.answers[0] === "Skipped / OOO");
         const statusStr = isSkipped ? "Skipped" : "Submitted";
+
         return [
           `"${row.date}"`,
           `"${row.user_name}"`,
           statusStr,
-          ...row.answers.map((a) => `"${a.replace(/"/g, '""')}"`),
+          ...(row.answers || []).map((a) => `"${a.replace(/"/g, '""')}"`),
         ].join(",");
       });
       csvContent = [headers.join(","), ...rows].join("\n");
@@ -320,12 +325,16 @@ export default function History() {
                 </tr>
               ) : viewMode === "standups" ? (
                 historyData.map((log, index) => {
+                  // 🚀 PROPER CHECK for Table Render
                   const isSkipped =
-                    log.answers.length > 0 &&
-                    log.answers[0] === "Skipped / OOO";
+                    log.is_skipped ||
+                    (log.answers &&
+                      log.answers.length > 0 &&
+                      log.answers[0] === "Skipped / OOO");
                   const totalQuestionCols = displayQuestions
                     ? displayQuestions.length
                     : 1;
+
                   return (
                     <tr
                       key={log.id}
@@ -403,7 +412,7 @@ export default function History() {
                         </td>
                       ) : (
                         <>
-                          {log.answers.map((ans, i) => (
+                          {(log.answers || []).map((ans, i) => (
                             <td key={i} className="px-5 py-3">
                               <div
                                 className="max-w-md truncate whitespace-normal line-clamp-2 text-sm 
@@ -415,10 +424,12 @@ export default function History() {
                             </td>
                           ))}
                           {displayQuestions &&
-                            log.answers.length < displayQuestions.length &&
+                            (log.answers || []).length <
+                              displayQuestions.length &&
                             Array.from({
                               length:
-                                displayQuestions.length - log.answers.length,
+                                displayQuestions.length -
+                                (log.answers || []).length,
                             }).map((_, i) => (
                               <td key={`pad-${i}`} className="px-5 py-3">
                                 <span className="bg-[#1e1f22] text-[#99AAB5] px-2 py-0.5 rounded text-xs">

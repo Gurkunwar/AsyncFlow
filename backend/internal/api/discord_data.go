@@ -10,10 +10,10 @@ import (
 )
 
 type UserGuild struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
 	Permissions interface{} `json:"permissions"`
-	Owner       bool   `json:"owner"`
+	Owner       bool        `json:"owner"`
 }
 
 type GuildDTO struct {
@@ -40,6 +40,7 @@ type HistoryDTO struct {
 	Avatar    string   `json:"avatar"`
 	Date      string   `json:"date"`
 	Answers   []string `json:"answers"`
+	IsSkipped bool     `json:"is_skipped"`
 	CreatedAt string   `json:"created_at"`
 }
 
@@ -75,7 +76,7 @@ func (s *Server) HandleGetUserGuilds(w http.ResponseWriter, r *http.Request) {
 
 	for _, g := range userGuilds {
 		var perms uint64
-        
+
 		switch v := g.Permissions.(type) {
 		case string:
 			perms, _ = strconv.ParseUint(v, 10, 64)
