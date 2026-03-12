@@ -20,8 +20,6 @@ export default function Navbar() {
 
   return (
     <nav className="flex items-center justify-between px-8 py-5 max-w-7xl mx-auto border-b border-[#313338]">
-      
-      {/* 🚀 NEW: Clickable Logo that routes to '/' */}
       <Link 
         to="/" 
         className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"

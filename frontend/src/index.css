@@ -1,5 +1,40 @@
 @import "tailwindcss";
 
+@theme {
+  /* Define the animation name and timing */
+  --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;
+
+  /* Define the keyframes natively inside the theme */
+  @keyframes fade-in-up {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Adding a custom scrollbar to match the Discord theme perfectly */
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #1a1b1e;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #2b2d31;
+  }
+}
+
 body {
   font-family: "Inter", sans-serif;
 }

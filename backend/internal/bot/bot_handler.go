@@ -100,14 +100,22 @@ func (h *BotHanlder) HandleGuildCreate(session *discordgo.Session, guildCreate *
 		return
 	}
 
-	var count int64
-	h.DB.Model(&models.Guild{}).Where("guild_id = ?", guildCreate.Guild.ID).Count(&count)
+	var existingGuild models.Guild
+	err := h.DB.Where("guild_id = ?", guildCreate.Guild.ID).First(&existingGuild).Error
 
-	if count > 0 {
+	if err == nil {
 		return
 	}
 
-	h.DB.Create(&models.Guild{GuildID: guildCreate.Guild.ID})
+	if err != gorm.ErrRecordNotFound {
+		log.Printf("⚠️ DB Error during GuildCreate (aborting welcome message): %v", err)
+		return
+	}
+
+	if createErr := h.DB.Create(&models.Guild{GuildID: guildCreate.Guild.ID}).Error; createErr != nil {
+		log.Printf("⚠️ Failed to save new guild to DB: %v", createErr)
+		return
+	}
 
 	var targetChannelID string
 	if guildCreate.Guild.SystemChannelID != "" {
@@ -154,7 +162,7 @@ func (h *BotHanlder) HandleGuildCreate(session *discordgo.Session, guildCreate *
 		},
 	}
 
-	_, err := session.ChannelMessageSendComplex(targetChannelID, &discordgo.MessageSend{
+	_, err = session.ChannelMessageSendComplex(targetChannelID, &discordgo.MessageSend{
 		Embeds:     []*discordgo.MessageEmbed{embed},
 		Components: components,
 	})

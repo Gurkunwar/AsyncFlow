@@ -77,14 +77,15 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 		Limit(100).
 		Find(&recentHistories)
 
-	keywords := []string{"blocked", "stuck", "issue", "help", "failing", "error", "bug", "can't", "waiting"}
+	blockerKeywords := []string{"blocked", "stuck", "issue", "help", "failing", "error", "bug", "can't", "waiting"}
+	negationWords := []string{"not ", "no ", "none ", "zero ", "without "}
 
 	for _, h := range recentHistories {
 		if len(stats.Blockers) >= 15 {
 			break
 		}
 
-		if len(h.Answers) > 0 && h.Answers[0] == "Skipped / OOO" {
+		if h.IsSkipped || (len(h.Answers) > 0 && h.Answers[0] == "Skipped / OOO") {
 			continue
 		}
 
@@ -93,11 +94,30 @@ func (s *Server) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request)
 
 		for _, ans := range h.Answers {
 			lowerAns := strings.ToLower(ans)
-			for _, kw := range keywords {
-				if strings.Contains(lowerAns, kw) {
-					isBlocker = true
-					blockerText = ans
-					break
+
+			for _, kw := range blockerKeywords {
+				idx := strings.Index(lowerAns, kw)
+				if idx != -1 {
+					wasNegated := false
+
+					startSearch := idx - 15
+					if startSearch < 0 {
+						startSearch = 0
+					}
+					precedingContext := lowerAns[startSearch:idx]
+
+					for _, neg := range negationWords {
+						if strings.Contains(precedingContext, neg) {
+							wasNegated = true
+							break
+						}
+					}
+
+					if !wasNegated {
+						isBlocker = true
+						blockerText = ans
+						break
+					}
 				}
 			}
 			if isBlocker {
@@ -215,7 +235,8 @@ func (s *Server) HandleGetPollStats(w http.ResponseWriter, r *http.Request) {
 		Scan(&stats.TopPolls)
 
 	var recentPolls []models.Poll
-	s.DB.Where("creator_id = ? AND is_active = ?", managerID, true).Order("created_at desc").Limit(15).Find(&recentPolls)
+	s.DB.Where("creator_id = ? AND is_active = ?", managerID, true).
+		Order("created_at desc").Limit(15).Find(&recentPolls)
 
 	for _, p := range recentPolls {
 		stats.RecentPolls = append(stats.RecentPolls, dtos.RecentPollDTO{
