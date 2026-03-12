@@ -10,6 +10,34 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+func (h *StandupHandler) verifyBotPermissionsForCommand(session *discordgo.Session, channelID string) error {
+	botID := session.State.User.ID
+
+	perms, err := session.UserChannelPermissions(botID, channelID)
+	if err != nil {
+		return fmt.Errorf("I cannot access <#%s>. Please make sure I am invited and have permission to view it.", channelID)
+	}
+
+	missing := make([]string, 0)
+	if perms&discordgo.PermissionViewChannel == 0 {
+		missing = append(missing, "`View Channel`")
+	}
+	if perms&discordgo.PermissionSendMessages == 0 {
+		missing = append(missing, "`Send Messages`")
+	}
+	if perms&discordgo.PermissionCreatePublicThreads == 0 && perms&discordgo.PermissionCreatePrivateThreads == 0 {
+		missing = append(missing, "`Create Public/Private Threads`")
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("I am missing the following required permissions in <#%s>:\n%s\n\n**"+
+			"Please ask a server admin to grant me these permissions before setting this as a target channel.**",
+			channelID, strings.Join(missing, "\n"))
+	}
+
+	return nil
+}
+
 func (h *StandupHandler) fetchAuthorizedStandup(session *discordgo.Session,
 	intr *discordgo.InteractionCreate,
 	standupName string) (*models.Standup, bool) {
@@ -63,78 +91,83 @@ func generateDaysMenu(standupID uint, activeDaysStr string) discordgo.MessageCom
 }
 
 func (h *StandupHandler) handleCreateStandup(session *discordgo.Session, intr *discordgo.InteractionCreate) {
-    userID := utils.ExtractUserID(intr)
-    optMap := utils.ParseCommandOptions(intr)
+	userID := utils.ExtractUserID(intr)
+	optMap := utils.ParseCommandOptions(intr)
 
-    name := optMap["name"].StringValue()
-    channelID := optMap["channel"].ChannelValue(session).ID
-    membersRaw := optMap["members"].StringValue()
+	name := optMap["name"].StringValue()
+	channelID := optMap["channel"].ChannelValue(session).ID
+	membersRaw := optMap["members"].StringValue()
 
-    standupTime := "09:00"
-    if opt, ok := optMap["time"]; ok {
-        standupTime = opt.StringValue()
-    }
+	if err := h.verifyBotPermissionsForCommand(session, channelID); err != nil {
+		utils.RespondWithMessage(session, intr, fmt.Sprintf("❌ **Permission Error:**\n%v", err), true)
+		return
+	}
 
-    defaultQuestions := []string{
-        "What did you accomplish yesterday?",
-        "What will you do today?",
-        "Are you stuck anywhere? (Blockers)",
-    }
+	standupTime := "09:00"
+	if opt, ok := optMap["time"]; ok {
+		standupTime = opt.StringValue()
+	}
 
-    standupInput := models.Standup{
-        Name:            name,
-        ReportChannelID: channelID,
-        GuildID:         intr.GuildID,
-        ManagerID:       userID,
-        Time:            standupTime,
-        Questions:       defaultQuestions,
-        Days:            "Monday,Tuesday,Wednesday,Thursday,Friday",
-    }
+	defaultQuestions := []string{
+		"What did you accomplish yesterday?",
+		"What will you do today?",
+		"Are you stuck anywhere? (Blockers)",
+	}
 
-    var manager models.UserProfile
-    h.DB.FirstOrCreate(&manager, models.UserProfile{UserID: userID})
+	standupInput := models.Standup{
+		Name:            name,
+		ReportChannelID: channelID,
+		GuildID:         intr.GuildID,
+		ManagerID:       userID,
+		Time:            standupTime,
+		Questions:       defaultQuestions,
+		Days:            "Monday,Tuesday,Wednesday,Thursday,Friday",
+	}
 
-    createdStandup, err := h.StandupService.CreateStandup(standupInput)
-    if err != nil {
-        utils.RespondWithMessage(session, intr, "❌ Failed to create standup.", true)
-        return
-    }
+	var manager models.UserProfile
+	h.DB.FirstOrCreate(&manager, models.UserProfile{UserID: userID})
 
-    addedCount := 0
-    re := regexp.MustCompile(`<@!?(\d+)>`)
-    matches := re.FindAllStringSubmatch(membersRaw, -1)
+	createdStandup, err := h.StandupService.CreateStandup(standupInput)
+	if err != nil {
+		utils.RespondWithMessage(session, intr, "❌ Failed to create standup.", true)
+		return
+	}
 
-    for _, match := range matches {
-        if len(match) > 1 {
-            targetUserID := match[1]
-            var user models.UserProfile
-            h.DB.FirstOrCreate(&user, models.UserProfile{UserID: targetUserID})
-            
-            h.DB.Model(&user).Association("Standups").Append(createdStandup)
-            addedCount++
+	addedCount := 0
+	re := regexp.MustCompile(`<@!?(\d+)>`)
+	matches := re.FindAllStringSubmatch(membersRaw, -1)
 
-            go func(uID string, tz string) {
-                dmChannel, err := session.UserChannelCreate(uID)
-                if err == nil {
-                    timeDisplay := utils.FormatLocalTime(createdStandup.Time, tz)
-                    welcomeMsg := fmt.Sprintf("👋 **You've been added to the '%s' Standup!**\n\n"+
-                        "⏰ Scheduled for: %s\nRun `/start` here or in the server to begin.",
-                        createdStandup.Name, timeDisplay)
-                    session.ChannelMessageSend(dmChannel.ID, welcomeMsg)
-                }
-            }(targetUserID, user.Timezone)
-        }
-    }
+	for _, match := range matches {
+		if len(match) > 1 {
+			targetUserID := match[1]
+			var user models.UserProfile
+			h.DB.FirstOrCreate(&user, models.UserProfile{UserID: targetUserID})
 
-    timeDisplay := utils.FormatLocalTime(createdStandup.Time, manager.Timezone)
-    successMsg := fmt.Sprintf("🎉 **Standup '%s' created successfully!**\n"+
-        "⏰ Scheduled for: **%s** on **Monday-Friday**\n"+
-        "👥 Added **%d** members.\n\n"+
-        "💡 *I have assigned the standard 3 Agile questions. Use `/edit-standup` "+
-        "to customize your questions or active days!*",
-        createdStandup.Name, timeDisplay, addedCount)
+			h.DB.Model(&user).Association("Standups").Append(createdStandup)
+			addedCount++
 
-    utils.RespondWithMessage(session, intr, successMsg, true)
+			go func(uID string, tz string) {
+				dmChannel, err := session.UserChannelCreate(uID)
+				if err == nil {
+					timeDisplay := utils.FormatLocalTime(createdStandup.Time, tz)
+					welcomeMsg := fmt.Sprintf("👋 **You've been added to the '%s' Standup!**\n\n"+
+						"⏰ Scheduled for: %s\nRun `/start` here or in the server to begin.",
+						createdStandup.Name, timeDisplay)
+					session.ChannelMessageSend(dmChannel.ID, welcomeMsg)
+				}
+			}(targetUserID, user.Timezone)
+		}
+	}
+
+	timeDisplay := utils.FormatLocalTime(createdStandup.Time, manager.Timezone)
+	successMsg := fmt.Sprintf("🎉 **Standup '%s' created successfully!**\n"+
+		"⏰ Scheduled for: **%s** on **Monday-Friday**\n"+
+		"👥 Added **%d** members.\n\n"+
+		"💡 *I have assigned the standard 3 Agile questions. Use `/edit-standup` "+
+		"to customize your questions or active days!*",
+		createdStandup.Name, timeDisplay, addedCount)
+
+	utils.RespondWithMessage(session, intr, successMsg, true)
 }
 
 func (h *StandupHandler) handleEditStandup(session *discordgo.Session, intr *discordgo.InteractionCreate) {
@@ -149,7 +182,14 @@ func (h *StandupHandler) handleEditStandup(session *discordgo.Session, intr *dis
 	updatedFields := make([]string, 0)
 
 	if opt, ok := optMap["new_channel"]; ok {
-		standup.ReportChannelID = opt.ChannelValue(session).ID
+		newChannelID := opt.ChannelValue(session).ID
+
+		if err := h.verifyBotPermissionsForCommand(session, newChannelID); err != nil {
+			utils.RespondWithMessage(session, intr, fmt.Sprintf("❌ **Permission Error:**\n%v", err), true)
+			return
+		}
+
+		standup.ReportChannelID = newChannelID
 		updatedFields = append(updatedFields, fmt.Sprintf("Report Channel (<#%s>)", standup.ReportChannelID))
 	}
 

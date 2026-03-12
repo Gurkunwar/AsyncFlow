@@ -171,8 +171,9 @@ export default function Home() {
 
         <ScrollFadeIn delay={100}>
           <h1
-            className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 text-transparent 
-          bg-clip-text bg-linear-to-r from-white via-white to-[#99AAB5] leading-tight max-w-4xl"
+            className="animate-fade-in-up [animation-delay:100ms] text-5xl md:text-7xl font-extrabold 
+          tracking-tight mb-8 text-white md:text-transparent bg-clip-text bg-linear-to-r from-white via-gray-200 
+          to-[#99AAB5] leading-tight max-w-4xl"
           >
             Kill the sync meetings. <br className="hidden md:block" />
             Embrace <span className="text-[#5865F2]">AsyncFlow</span>.
@@ -209,7 +210,7 @@ export default function Home() {
               68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c0,
               0,.04-.06.09-.09C129.67,52.82,122.93,28.21,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,
               53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,
-              60,73.31,53s5-12.74,11.43-12.74S96.3,46,96.19,53,91.08,65.69,84.69,65.69Z"
+              60,73.31,53s-12.74,11.43-12.74S96.3,46,96.19,53,91.08,65.69,84.69,65.69Z"
               />
             </svg>
             Add to Discord
@@ -627,8 +628,10 @@ export default function Home() {
                       </div>
 
                       <div className="mt-4 text-xs font-medium text-[#99AAB5] flex items-center justify-between">
-                        <span className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity 
-                        duration-500 lg:delay-1000">
+                        <span
+                          className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity 
+                        duration-500 lg:delay-1000"
+                        >
                           5 votes
                         </span>
                         <span>Ends in 24 hours</span>

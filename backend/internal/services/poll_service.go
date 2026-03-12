@@ -22,81 +22,72 @@ func NewPollService(db *gorm.DB, session *discordgo.Session) *PollService {
 }
 
 func (s *PollService) CreatePoll(guildID, channelID, creatorID,
-	question string, options []string, duration int) (*models.Poll, error) {
+    question string, options []string, duration int) (*models.Poll, error) {
 
-	if err := s.DB.FirstOrCreate(&models.Guild{}, models.Guild{GuildID: guildID}).Error; err != nil {
-		return nil, fmt.Errorf("failed to register guild in database: %v", err)
-	}
+    if err := s.DB.FirstOrCreate(&models.Guild{}, models.Guild{GuildID: guildID}).Error; err != nil {
+        return nil, fmt.Errorf("failed to register guild: %v", err)
+    }
+    if err := s.DB.FirstOrCreate(&models.UserProfile{}, models.UserProfile{UserID: creatorID}).Error; err != nil {
+        return nil, fmt.Errorf("failed to register creator: %v", err)
+    }
 
-	if err := s.DB.FirstOrCreate(&models.UserProfile{}, models.UserProfile{UserID: creatorID}).Error; err != nil {
-		return nil, fmt.Errorf("failed to register creator in database: %v", err)
-	}
+    var pollAnswers []discordgo.PollAnswer
+    for _, optText := range options {
+        cleanOpt := strings.TrimSpace(optText)
+        if cleanOpt == "" {
+            continue
+        }
+        pollAnswers = append(pollAnswers, discordgo.PollAnswer{
+            Media: &discordgo.PollMedia{Text: cleanOpt},
+        })
+    }
 
-	var pollAnswers []discordgo.PollAnswer
-	for _, optText := range options {
-		cleanOpt := strings.TrimSpace(optText)
-		if cleanOpt == "" {
-			continue
-		}
-		pollAnswers = append(pollAnswers, discordgo.PollAnswer{
-			Media: &discordgo.PollMedia{Text: cleanOpt},
-		})
-	}
+    if len(pollAnswers) < 2 {
+        return nil, errors.New("a poll must have at least 2 options")
+    }
 
-	if len(pollAnswers) < 2 {
-		return nil, errors.New("a poll must have at least 2 valid options")
-	}
+    nativePoll := &discordgo.Poll{
+        Question:         discordgo.PollMedia{Text: question},
+        Answers:          pollAnswers,
+        AllowMultiselect: false,
+        Duration:         duration,
+    }
 
-	nativePoll := &discordgo.Poll{
-		Question:         discordgo.PollMedia{Text: question},
-		Answers:          pollAnswers,
-		AllowMultiselect: false,
-		Duration:         duration,
-	}
+    msg, err := s.Session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+        Poll: nativePoll,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to publish poll: %w", err)
+    }
 
-	msg, err := s.Session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
-		Poll: nativePoll,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to publish poll to discord: %w", err)
-	}
+    pollModel := models.Poll{
+        GuildID:   guildID,
+        ChannelID: channelID,
+        CreatorID: creatorID,
+        Question:  question,
+        MessageID: msg.ID,
+        IsActive:  true,
+    }
 
-	pollModel := models.Poll{
-		GuildID:   guildID,
-		ChannelID: channelID,
-		CreatorID: creatorID,
-		Question:  question,
-		MessageID: msg.ID,
-		IsActive:  true,
-	}
+    tx := s.DB.Begin()
+    if err := tx.Create(&pollModel).Error; err != nil {
+        tx.Rollback()
+        return nil, fmt.Errorf("db error: %w", err)
+    }
 
-	tx := s.DB.Begin()
+    for _, answer := range pollAnswers {
+        pollOpt := models.PollOption{
+            PollID: pollModel.ID,
+            Label:  answer.Media.Text,
+        }
+        if err := tx.Create(&pollOpt).Error; err != nil {
+            tx.Rollback()
+            return nil, fmt.Errorf("db option error: %w", err)
+        }
+    }
 
-	if err := tx.Create(&pollModel).Error; err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("database error creating poll: %w", err)
-	}
-
-	for _, answer := range pollAnswers {
-		pollOpt := models.PollOption{
-			PollID: pollModel.ID,
-			Label:  answer.Media.Text,
-		}
-		if err := tx.Create(&pollOpt).Error; err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("database error creating poll option: %w", err)
-		}
-	}
-
-	tx.Commit()
-
-	_, editErr := s.Session.ChannelMessageEdit(channelID, msg.ID,
-		fmt.Sprintf("📊 **Poll ID:** `%d`", pollModel.ID))
-	if editErr != nil {
-		log.Printf("Warning: Failed to stamp Poll ID onto message %s: %v", msg.ID, editErr)
-	}
-
-	return &pollModel, nil
+    tx.Commit()
+    return &pollModel, nil
 }
 
 func (s *PollService) HandleVoteAdd(channelID, messageID, userID string, answerID int) error {

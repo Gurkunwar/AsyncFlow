@@ -319,7 +319,7 @@ export default function Dashboard() {
       <div className="shrink-0 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-extrabold mb-1">
-            sup! {userData.username || "manager"}
+            Greetings! {userData.username || "manager"}
           </h1>
           <p className="text-[#99AAB5] text-sm font-medium flex items-center gap-2">
             here's your summary

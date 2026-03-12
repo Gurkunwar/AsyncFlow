@@ -25,6 +25,9 @@ export default function Settings() {
   const [timezone, setTimezone] = useState("UTC");
   const [saveStatus, setSaveStatus] = useState({ message: "", type: "" });
 
+  const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID;
+  const INVITE_URL = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&permissions=274877959232&scope=bot+applications.commands`;
+
   useEffect(() => {
     if (settings?.timezone) {
       setTimezone(settings.timezone);
@@ -45,7 +48,7 @@ export default function Settings() {
   };
 
   return (
-    <>
+    <div className="animate-fade-in pb-8">
       <div className="mb-8">
         <h2 className="text-2xl font-bold mb-2">User Preferences</h2>
         <p className="text-[#99AAB5] text-sm">
@@ -53,6 +56,7 @@ export default function Settings() {
         </p>
       </div>
 
+      {/* Date & Time Settings */}
       <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-xl shadow-sm p-6 mb-6">
         <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#99AAB5] mb-4">
           Date & Time
@@ -137,6 +141,48 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Bot Integration / Invite */}
+      <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-xl shadow-sm p-6 mb-6 flex flex-col 
+      md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#99AAB5] mb-2">
+            Bot Integration
+          </h3>
+          <h4 className="text-lg font-bold text-gray-200 mb-1">
+            Add to another server
+          </h4>
+          <p className="text-[#99AAB5] text-sm max-w-md">
+            Want to automate standups for a different team? Invite AsyncFlow to
+            another Discord server you manage.
+          </p>
+        </div>
+        <a
+          href={INVITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full sm:w-auto bg-[#1e1f22] hover:bg-[#35373c] border border-[#3f4147] 
+          text-white px-6 py-2.5 rounded font-semibold text-sm transition-colors shadow-sm flex justify-center 
+          items-center gap-2 cursor-pointer shrink-0 group"
+        >
+          <svg
+            className="w-5 h-5 text-[#5865F2] group-hover:scale-110 transition-transform"
+            viewBox="0 0 127.14 96.36"
+            fill="currentColor"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,
+            72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,
+            96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,
+            0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c0,
+            0,.04-.06.09-.09C129.67,52.82,122.93,28.21,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,
+            46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.3,46,96.19,53,
+            91.08,65.69,84.69,65.69Z" />
+          </svg>
+          Invite AsyncFlow
+        </a>
+      </div>
+
+      {/* Notifications WIP */}
       <div
         className="bg-[#2b2d31] border border-[#1e1f22] rounded-xl shadow-sm p-6 opacity-60 grayscale 
       cursor-not-allowed"
@@ -150,11 +196,12 @@ export default function Settings() {
               Configure DM notifications and email alerts.
             </p>
           </div>
-          <div className="bg-[#1e1f22] text-[#99AAB5] text-xs px-3 py-1 rounded font-bold tracking-wider">
+          <div className="bg-[#1e1f22] text-[#99AAB5] text-xs px-3 py-1 rounded font-bold tracking-wider border 
+          border-[#3f4147]">
             WIP
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

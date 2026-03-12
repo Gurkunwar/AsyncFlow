@@ -196,7 +196,8 @@ export default function CreateStandupModal({ isOpen, onClose }) {
       }).unwrap();
       onClose();
     } catch (err) {
-      console.error("Creation failed", err);
+      const errorMsg = err?.data?.error || "Failed to create standup.";
+      alert(`⚠️ Setup Failed\n\n${errorMsg}`);
     }
   };
 
@@ -330,7 +331,6 @@ export default function CreateStandupModal({ isOpen, onClose }) {
                 </div>
 
                 <div>
-                  {/* UPDATED: Added Manual Refresh Button */}
                   <label
                     className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 flex 
                   justify-between items-center"

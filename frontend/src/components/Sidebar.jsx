@@ -147,7 +147,7 @@ export default function Sidebar() {
   const effectiveIsCollapsed = isMobileOpen ? false : isCollapsed;
 
   return (
-    <div className="shrink-0 flex flex-col md:h-screen md:sticky md:top-0 z-50">
+    <div className="shrink-0 flex flex-col md:h-dvh md:sticky md:top-0 z-50">
       {/* MOBILE HEADER */}
       <div
         className="md:hidden flex items-center justify-between bg-[#2b2d31] p-4 border-b 
@@ -202,7 +202,8 @@ export default function Sidebar() {
         className={`
           fixed md:relative inset-y-0 left-0 z-50
           ${effectiveIsCollapsed ? "md:w-20" : "md:w-64"} w-64
-          bg-[#2b2d31] flex flex-col transition-all duration-300 border-r border-[#1e1f22] h-screen shrink-0
+          bg-[#2b2d31] flex flex-col transition-all duration-300 border-r border-[#1e1f22] 
+          h-dvh md:h-screen shrink-0
           transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
         `}
       >

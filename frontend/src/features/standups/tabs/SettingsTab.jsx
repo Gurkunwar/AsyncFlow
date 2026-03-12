@@ -41,7 +41,7 @@ export default function SettingsTab({
         days: parsedDays,
         report_channel_id:
           standup.report_channel_id || standup.ReportChannelID || "",
-        sync_role_id: standup.sync_role_id || standup.SyncRoleID || "", // Preserved from API
+        sync_role_id: standup.sync_role_id || standup.SyncRoleID || "",
         questions: standup.questions || standup.Questions || [],
       });
     }
@@ -79,11 +79,12 @@ export default function SettingsTab({
     setFormData({ ...formData, questions: items });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const cleanedQuestions = formData.questions
       .map((q) => q.trim())
       .filter((q) => q.length > 0);
+
     if (cleanedQuestions.length === 0) {
       alert("You must have at least one valid question.");
       return;
@@ -93,12 +94,17 @@ export default function SettingsTab({
       return;
     }
 
-    // Sends the full payload (including our hidden sync_role_id) back to the backend
-    onSave({
-      ...formData,
-      questions: cleanedQuestions,
-      days: formData.days.join(","),
-    });
+    try {
+      await onSave({
+        ...formData,
+        questions: cleanedQuestions,
+        days: formData.days.join(","),
+      });
+    } catch (err) {
+      // 🚀 NEW: Catch the permission error string sent from the Go Backend
+      const errorMsg = err?.data?.error || "Failed to save settings.";
+      alert(`⚠️ Action Failed\n\n${errorMsg}`);
+    }
   };
 
   return (
@@ -329,7 +335,6 @@ export default function SettingsTab({
           )}
         </div>
 
-        {/* --- NEW FOOTER: Includes Test Run Button --- */}
         <div className="pt-4 border-t border-[#3f4147] flex justify-between items-center">
           <button
             type="button"
@@ -347,7 +352,7 @@ export default function SettingsTab({
           >
             Delete Standup
           </button>
-          
+
           <div className="flex gap-3">
             <button
               type="button"
