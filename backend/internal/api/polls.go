@@ -248,34 +248,36 @@ func (s *Server) HandleDeleteWebPoll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleEndWebPoll(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+    if r.Method != http.MethodPost {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
 
-	var req struct {
-		PollID uint `json:"poll_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid payload", http.StatusBadRequest)
-		return
-	}
+    var req struct {
+        PollID uint `json:"poll_id"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid payload", http.StatusBadRequest)
+        return
+    }
 
-	managerID := r.Context().Value(UserIDKey).(string)
+    managerID := r.Context().Value(UserIDKey).(string)
 
-	var poll models.Poll
-	if err := s.DB.Where("id = ? AND creator_id = ?", req.PollID, managerID).First(&poll).Error; err != nil {
-		http.Error(w, "Poll not found or unauthorized", http.StatusUnauthorized)
-		return
-	}
+    var poll models.Poll
+    if err := s.DB.Where("id = ? AND creator_id = ?", req.PollID, managerID).First(&poll).Error; err != nil {
+        w.WriteHeader(http.StatusUnauthorized)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Poll not found or unauthorized"})
+        return
+    }
 
-	if err := s.PollService.EndPoll(req.PollID); err != nil {
-		http.Error(w, "Failed to end poll", http.StatusInternalServerError)
-		return
-	}
+    if err := s.PollService.EndPoll(req.PollID); err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+        return
+    }
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Poll ended successfully"})
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{"message": "Poll ended successfully"})
 }
 
 func (s *Server) HandleExportWebPoll(w http.ResponseWriter, r *http.Request) {

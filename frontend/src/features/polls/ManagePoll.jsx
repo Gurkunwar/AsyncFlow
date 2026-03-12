@@ -41,9 +41,12 @@ export default function ManagePoll() {
     ) {
       try {
         await endPollMutation(id).unwrap();
-        alert("Poll successfully ended!");
       } catch (err) {
         console.error("Failed to end poll", err);
+        const errorMsg =
+          err?.data?.error ||
+          "An unexpected error occurred while ending the poll.";
+        alert(`⚠️ Failed to end poll:\n\n${errorMsg}`);
       }
     }
   };
