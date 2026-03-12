@@ -180,46 +180,76 @@ var Commands = []*discordgo.ApplicationCommand{
 		},
 	},
 	{
-		Name:        "poll",
-		Description: "📊 Create a native poll for your team instantly.",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "question",
-				Description: "What are we voting on?",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "option_1",
-				Description: "First option",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "option_2",
-				Description: "Second option",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "option_3",
-				Description: "Third option (optional)",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "option_4",
-				Description: "Fourth option (optional)",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "option_5",
-				Description: "Fifth option (optional)",
-				Required:    false,
-			},
-			{
+        Name:        "poll",
+        Description: "📊 Create a native poll for your team instantly.",
+        Options: []*discordgo.ApplicationCommandOption{
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "question",
+                Description: "What are we voting on?",
+                Required:    true,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_1",
+                Description: "First option",
+                Required:    true,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_2",
+                Description: "Second option",
+                Required:    true,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_3",
+                Description: "Third option (optional)",
+                Required:    false,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_4",
+                Description: "Fourth option (optional)",
+                Required:    false,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_5",
+                Description: "Fifth option (optional)",
+                Required:    false,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_6",
+                Description: "Sixth option (optional)",
+                Required:    false,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_7",
+                Description: "Seventh option (optional)",
+                Required:    false,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_8",
+                Description: "Eighth option (optional)",
+                Required:    false,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_9",
+                Description: "Ninth option (optional)",
+                Required:    false,
+            },
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "option_10",
+                Description: "Tenth option (optional)",
+                Required:    false,
+            },
+            {
                 Type:        discordgo.ApplicationCommandOptionInteger,
                 Name:        "duration",
                 Description: "How long should the poll last? (Default: 24 hours)",
@@ -233,8 +263,8 @@ var Commands = []*discordgo.ApplicationCommand{
                     {Name: "168 Hours (1 Week)", Value: 168},
                 },
             },
-		},
-	},
+        },
+    },
 	{
 		Name:                     "poll-audit",
 		Description:              "📊 (Admin Only) See a detailed breakdown of who voted for what.",

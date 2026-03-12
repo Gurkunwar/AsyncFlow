@@ -17,7 +17,8 @@ export default function MyStandups() {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const { data: guilds = [] } = useGetUserGuildsQuery();
+  const { data: guilds = [], isLoading: isLoadingGuilds } =
+    useGetUserGuildsQuery();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -101,27 +102,28 @@ export default function MyStandups() {
             </button>
           </div>
 
-          {guilds.length > 0 && (
-            <select
-              value={selectedGuild}
-              onChange={(e) => {
-                setSelectedGuild(e.target.value);
-                setPage(1);
-              }}
-              className="bg-[#1e1f22] text-sm text-white px-3 py-2 rounded-md outline-none border 
-              border-[#3f4147] focus:border-[#5865F2] cursor-pointer w-full sm:w-auto"
-            >
-              <option value="All">All Servers</option>
-              {guilds.map((guild) => (
-                <option key={guild.id} value={guild.id}>
-                  {guild.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            value={selectedGuild}
+            onChange={(e) => {
+              setSelectedGuild(e.target.value);
+              setPage(1);
+            }}
+            disabled={isLoadingGuilds}
+            className="bg-[#1e1f22] text-sm text-white px-3 py-2 rounded-md outline-none border 
+            border-[#3f4147] focus:border-[#5865F2] cursor-pointer w-full sm:w-auto disabled:opacity-50 
+            disabled:cursor-not-allowed"
+          >
+            <option value="All">
+              {isLoadingGuilds ? "Loading servers..." : "All Servers"}
+            </option>
+            {guilds.map((guild) => (
+              <option key={guild.id} value={guild.id}>
+                {guild.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Search Bar */}
         <div className="relative w-full xl:w-72">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg
@@ -149,7 +151,6 @@ export default function MyStandups() {
         </div>
       </div>
 
-      {/* CONTENT SECTION */}
       {isLoading ? (
         <div className="flex justify-center items-center h-64 text-[#99AAB5]">
           Loading standups...

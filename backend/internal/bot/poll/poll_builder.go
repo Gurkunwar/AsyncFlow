@@ -26,7 +26,7 @@ func (h *PollHandler) handleCreateNativePoll(session *discordgo.Session, intr *d
     }
 
     var strOptions []string
-    for i := 1; i <= 5; i++ {
+    for i := 1; i <= 10; i++ {
         optName := fmt.Sprintf("option_%d", i)
         if opt, ok := optionMap[optName]; ok && opt.StringValue() != "" {
             strOptions = append(strOptions, opt.StringValue())
