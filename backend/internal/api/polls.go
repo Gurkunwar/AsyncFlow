@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Gurkunwar/asyncflow/internal/api/dtos"
@@ -248,36 +249,36 @@ func (s *Server) HandleDeleteWebPoll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleEndWebPoll(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    var req struct {
-        PollID uint `json:"poll_id"`
-    }
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, "Invalid payload", http.StatusBadRequest)
-        return
-    }
+	var req struct {
+		PollID uint `json:"poll_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
 
-    managerID := r.Context().Value(UserIDKey).(string)
+	managerID := r.Context().Value(UserIDKey).(string)
 
-    var poll models.Poll
-    if err := s.DB.Where("id = ? AND creator_id = ?", req.PollID, managerID).First(&poll).Error; err != nil {
-        w.WriteHeader(http.StatusUnauthorized)
-        json.NewEncoder(w).Encode(map[string]string{"error": "Poll not found or unauthorized"})
-        return
-    }
+	var poll models.Poll
+	if err := s.DB.Where("id = ? AND creator_id = ?", req.PollID, managerID).First(&poll).Error; err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Poll not found or unauthorized"})
+		return
+	}
 
-    if err := s.PollService.EndPoll(req.PollID); err != nil {
-        w.WriteHeader(http.StatusInternalServerError)
-        json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-        return
-    }
+	if err := s.PollService.EndPoll(req.PollID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 
-    w.WriteHeader(http.StatusOK)
-    json.NewEncoder(w).Encode(map[string]string{"message": "Poll ended successfully"})
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Poll ended successfully"})
 }
 
 func (s *Server) HandleExportWebPoll(w http.ResponseWriter, r *http.Request) {
@@ -319,16 +320,7 @@ func (s *Server) HandleExportWebPoll(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleGetPollHistory(w http.ResponseWriter, r *http.Request) {
 	pollIDStr := r.URL.Query().Get("poll_id")
-	if pollIDStr == "" {
-		http.Error(w, "Missing poll_id parameter", http.StatusBadRequest)
-		return
-	}
-
-	pollID, err := strconv.ParseUint(pollIDStr, 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid poll ID", http.StatusBadRequest)
-		return
-	}
+	pollID, _ := strconv.ParseUint(pollIDStr, 10, 32)
 
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {
@@ -339,26 +331,46 @@ func (s *Server) HandleGetPollHistory(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 	offset := (page - 1) * limit
+	search := r.URL.Query().Get("search")
+
+	query := s.DB.Table("poll_votes").
+		Joins("JOIN poll_options ON poll_options.id = poll_votes.option_id").
+		Joins("LEFT JOIN user_profiles ON user_profiles.user_id = poll_votes.user_id").
+		Where("poll_votes.poll_id = ?", pollID)
+
+	if search != "" {
+		tokens := strings.Fields(search)
+		for _, token := range tokens {
+			token = strings.ToLower(token)
+			if strings.HasPrefix(token, "date:") {
+				dateVal := strings.TrimPrefix(token, "date:")
+				if dateVal == "today" {
+					dateVal = time.Now().Format("2006-01-02")
+				}
+				query = query.Where("DATE(poll_votes.created_at) = ?", dateVal)
+			} else {
+				query = query.Where("user_profiles.username ILIKE ? OR poll_options.label ILIKE ?",
+					"%"+token+"%", "%"+token+"%")
+			}
+		}
+	}
 
 	var totalCount int64
-	s.DB.Model(&models.PollVote{}).Where("poll_id = ?", pollID).Count(&totalCount)
+	query.Count(&totalCount)
 
 	type PollVoteResult struct {
 		ID        uint
 		UserID    string
 		Label     string
 		CreatedAt *time.Time
+		Username  string
+		Avatar    string
 	}
 	var votes []PollVoteResult
 
-	err = s.DB.Table("poll_votes").
-		Select("poll_votes.id, poll_votes.user_id, poll_options.label, poll_votes.created_at").
-		Joins("JOIN poll_options ON poll_options.id = poll_votes.option_id").
-		Where("poll_votes.poll_id = ?", pollID).
-		Order("poll_votes.created_at desc").
-		Offset(offset).
-		Limit(limit).
-		Scan(&votes).Error
+	err := query.Select("poll_votes.id, poll_votes.user_id, poll_options.label, " +
+		"poll_votes.created_at, user_profiles.username, user_profiles.avatar").
+		Order("poll_votes.created_at desc").Offset(offset).Limit(limit).Scan(&votes).Error
 
 	if err != nil {
 		http.Error(w, "Failed to fetch poll history", http.StatusInternalServerError)
@@ -367,40 +379,26 @@ func (s *Server) HandleGetPollHistory(w http.ResponseWriter, r *http.Request) {
 
 	var data []dtos.PollHistoryDTO
 	for _, v := range votes {
-		var profile models.UserProfile
-		s.DB.Where("user_id = ?", v.UserID).First(&profile)
-
-		userName := profile.Username
+		userName := v.Username
 		if userName == "" {
 			userName = "User " + v.UserID[len(v.UserID)-4:]
 		}
-
 		timeStr := "Unknown Time"
 		if v.CreatedAt != nil {
 			timeStr = v.CreatedAt.Format("2006-01-02 15:04:05")
 		}
-
 		data = append(data, dtos.PollHistoryDTO{
-			ID:        v.ID,
-			UserID:    v.UserID,
-			UserName:  userName,
-			Avatar:    profile.Avatar,
-			Option:    v.Label,
-			CreatedAt: timeStr,
+			ID: v.ID, UserID: v.UserID, UserName: userName, Avatar: v.Avatar, Option: v.Label, CreatedAt: timeStr,
 		})
 	}
 
 	if data == nil {
 		data = []dtos.PollHistoryDTO{}
 	}
-
 	totalPages := int(math.Ceil(float64(totalCount) / float64(limit)))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"data":        data,
-		"total_count": totalCount,
-		"page":        page,
-		"total_pages": totalPages,
+		"data": data, "total_count": totalCount, "page": page, "total_pages": totalPages,
 	})
 }

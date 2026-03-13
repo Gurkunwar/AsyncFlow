@@ -20,9 +20,14 @@ export default function History() {
 
   const [page, setPage] = useState(1);
 
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   useEffect(() => {
     localStorage.setItem("historyViewMode", viewMode);
     setPage(1);
+    setSearchInput("");
+    setDebouncedSearch("");
   }, [viewMode]);
 
   useEffect(() => {
@@ -39,6 +44,14 @@ export default function History() {
     }
   }, [selectedPollId]);
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
   const { data: standupsData, isLoading: isLoadingStandups } =
     useGetManagedStandupsQuery(
       { filter: "all", page: 1, limit: 50 },
@@ -50,11 +63,14 @@ export default function History() {
     skip: viewMode !== "standups" || !selectedStandupId,
   });
 
-  const { data: historyResponse, isLoading: isLoadingHistory } =
-    useGetHistoryQuery(
-      { id: selectedStandupId, page, limit: 20 },
-      { skip: viewMode !== "standups" || !selectedStandupId },
-    );
+  const {
+    data: historyResponse,
+    isLoading: isLoadingHistory,
+    isFetching: isFetchingHistory,
+  } = useGetHistoryQuery(
+    { id: selectedStandupId, page, limit: 20, search: debouncedSearch },
+    { skip: viewMode !== "standups" || !selectedStandupId },
+  );
   const historyData = historyResponse?.data || [];
   const historyTotalPages = historyResponse?.total_pages || 1;
 
@@ -65,11 +81,14 @@ export default function History() {
     );
   const polls = pollsData?.data || [];
 
-  const { data: pollHistoryResponse, isLoading: isLoadingPollHistory } =
-    useGetPollHistoryQuery(
-      { id: selectedPollId, page, limit: 20 },
-      { skip: viewMode !== "polls" || !selectedPollId },
-    );
+  const {
+    data: pollHistoryResponse,
+    isLoading: isLoadingPollHistory,
+    isFetching: isFetchingPolls,
+  } = useGetPollHistoryQuery(
+    { id: selectedPollId, page, limit: 20, search: debouncedSearch },
+    { skip: viewMode !== "polls" || !selectedPollId },
+  );
   const pollHistoryData = pollHistoryResponse?.data || [];
   const pollTotalPages = pollHistoryResponse?.total_pages || 1;
 
@@ -109,7 +128,6 @@ export default function History() {
         standupConfig.questions || standupConfig.Questions || [];
       const headers = ["Date", "User", "Status", ...questions];
       const rows = historyData.map((row) => {
-        // 🚀 PROPER CHECK for CSV Export
         const isSkipped =
           row.is_skipped ||
           (row.answers &&
@@ -146,6 +164,22 @@ export default function History() {
     link.click();
     document.body.removeChild(link);
   };
+
+  // 🚀 FIX: Smart Toggle for Filter Chips
+  const toggleFilterToken = (token) => {
+    setSearchInput((prev) => {
+      const current = prev || "";
+      if (current.includes(token)) {
+        // If it exists, remove it and clean up extra spaces
+        return current.replace(token, "").replace(/\s+/g, " ").trim();
+      }
+      // If it doesn't exist, append it
+      return `${current} ${token}`.trim();
+    });
+  };
+
+  // Dynamic Date calculations
+  const yesterdayDateToken = `date:${new Date(Date.now() - 86400000).toISOString().split("T")[0]}`;
 
   const displayQuestions = standupConfig?.questions || standupConfig?.Questions;
   const isExportDisabled =
@@ -205,10 +239,7 @@ export default function History() {
         </div>
       </div>
 
-      <div
-        className="mb-6 bg-[#2b2d31] p-4 rounded-xl border border-[#1e1f22] shadow-sm flex flex-col 
-      sm:flex-row sm:items-center gap-3 sm:gap-4"
-      >
+      <div className="mb-4 bg-[#2b2d31] p-4 rounded-xl border border-[#1e1f22] shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <span className="text-sm font-bold text-[#99AAB5] shrink-0">
           {viewMode === "standups" ? "Target Team:" : "Target Poll:"}
         </span>
@@ -265,9 +296,102 @@ export default function History() {
         )}
       </div>
 
+      {/* SMART SEARCH UI */}
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg
+              className="h-4 w-4 text-[#99AAB5]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Search username, answers, or use filters (e.g., is:skipped date:today)..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full bg-[#1e1f22] text-sm text-white pl-9 pr-3 py-3 rounded-md outline-none border border-[#3f4147] focus:border-[#5865F2] transition-colors placeholder-[#99AAB5] shadow-inner"
+          />
+        </div>
+
+        {/* Dynamic Helper Chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-[#99AAB5] mr-1">
+            Quick Filters:
+          </span>
+
+          {viewMode === "standups" && (
+            <>
+              <button
+                onClick={() => toggleFilterToken("is:submitted")}
+                className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors border ${
+                  searchInput.includes("is:submitted")
+                    ? "bg-[#43b581] text-white border-[#43b581]"
+                    : "bg-[#43b581]/10 text-[#43b581] border-[#43b581]/20 hover:bg-[#43b581]/20"
+                }`}
+              >
+                is:submitted
+              </button>
+              <button
+                onClick={() => toggleFilterToken("is:skipped")}
+                className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors border ${
+                  searchInput.includes("is:skipped")
+                    ? "bg-[#da373c] text-white border-[#da373c]"
+                    : "bg-[#da373c]/10 text-[#da373c] border-[#da373c]/20 hover:bg-[#da373c]/20"
+                }`}
+              >
+                is:skipped
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={() => toggleFilterToken("date:today")}
+            className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors border ${
+              searchInput.includes("date:today")
+                ? "bg-[#5865F2] text-white border-[#5865F2]"
+                : "bg-[#5865F2]/10 text-[#5865F2] border-[#5865F2]/20 hover:bg-[#5865F2]/20"
+            }`}
+          >
+            date:today
+          </button>
+
+          <button
+            onClick={() => toggleFilterToken(yesterdayDateToken)}
+            className={`text-[11px] px-2 py-1 rounded cursor-pointer transition-colors border ${
+              searchInput.includes(yesterdayDateToken)
+                ? "bg-[#99AAB5] text-[#1e1f22] border-[#99AAB5]"
+                : "bg-[#1e1f22] text-[#99AAB5] border-[#3f4147] hover:bg-[#2b2d31]"
+            }`}
+          >
+            date:yesterday
+          </button>
+
+          {searchInput && (
+            <button
+              onClick={() => setSearchInput("")}
+              className="text-[11px] text-[#99AAB5] hover:text-white underline ml-auto cursor-pointer"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      </div>
+
       <div
-        className="bg-[#2b2d31] border border-[#1e1f22] rounded-xl shadow-sm flex flex-col 
-      overflow-hidden mb-6"
+        className={`bg-[#2b2d31] border border-[#1e1f22] rounded-xl shadow-sm flex flex-col 
+      overflow-hidden mb-6 transition-opacity duration-200 ${
+        isFetchingHistory || isFetchingPolls ? "opacity-50" : "opacity-100"
+      }`}
       >
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-sm whitespace-nowrap">
@@ -319,13 +443,12 @@ export default function History() {
                   <td colSpan={10} className="px-5 py-16 text-center">
                     <span className="text-4xl mb-3 block opacity-50">📭</span>
                     <span className="text-[#99AAB5] font-medium">
-                      No logs found yet.
+                      No matching logs found.
                     </span>
                   </td>
                 </tr>
               ) : viewMode === "standups" ? (
                 historyData.map((log, index) => {
-                  // 🚀 PROPER CHECK for Table Render
                   const isSkipped =
                     log.is_skipped ||
                     (log.answers &&

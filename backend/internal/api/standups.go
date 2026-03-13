@@ -6,6 +6,8 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/Gurkunwar/asyncflow/internal/api/dtos"
 	"github.com/Gurkunwar/asyncflow/internal/models"
@@ -256,16 +258,7 @@ func (s *Server) HandleDeleteStandup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleGetStandupHistory(w http.ResponseWriter, r *http.Request) {
 	standupIDStr := r.URL.Query().Get("standup_id")
-	if standupIDStr == "" {
-		http.Error(w, "Missing standup_id parameter", http.StatusBadRequest)
-		return
-	}
-
-	standupID, err := strconv.ParseUint(standupIDStr, 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid standup ID", http.StatusBadRequest)
-		return
-	}
+	standupID, _ := strconv.ParseUint(standupIDStr, 10, 32)
 
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {
@@ -277,54 +270,81 @@ func (s *Server) HandleGetStandupHistory(w http.ResponseWriter, r *http.Request)
 	}
 	offset := (page - 1) * limit
 
-	var totalCount int64
-	s.DB.Model(&models.StandupHistory{}).Where("standup_id = ?", standupID).Count(&totalCount)
+	search := r.URL.Query().Get("search")
 
-	var histories []models.StandupHistory
-	if err := s.DB.Where("standup_id = ?", standupID).
-		Order("created_at desc").
-		Offset(offset).
-		Limit(limit).
-		Find(&histories).
-		Error; err != nil {
+	query := s.DB.Table("standup_histories").
+		Select("standup_histories.*, user_profiles.username as joined_user_name, user_profiles.avatar as joined_avatar").
+		Joins("LEFT JOIN user_profiles ON user_profiles.user_id = standup_histories.user_id").
+		Where("standup_histories.standup_id = ?", standupID)
+
+	if search != "" {
+		tokens := strings.Fields(search)
+		for _, token := range tokens {
+			token = strings.ToLower(token)
+
+			if token == "is:skipped" {
+				query = query.Where("standup_histories.is_skipped = ? OR standup_histories.answers::text ILIKE ?",
+					true, "%Skipped / OOO%")
+			} else if token == "is:submitted" {
+				query = query.Where("standup_histories.is_skipped = ? AND "+
+					"(standup_histories.answers::text NOT ILIKE ? OR standup_histories.answers IS NULL)",
+					false, "%Skipped / OOO%")
+			} else if strings.HasPrefix(token, "date:") {
+				dateVal := strings.TrimPrefix(token, "date:")
+				if dateVal == "today" {
+					dateVal = time.Now().Format("2006-01-02")
+				}
+				query = query.Where("DATE(standup_histories.created_at) = ?", dateVal)
+			} else {
+				query = query.Where("user_profiles.username ILIKE ? OR standup_histories.answers::text ILIKE ?",
+					"%"+token+"%", "%"+token+"%")
+			}
+		}
+	}
+
+	var totalCount int64
+	query.Count(&totalCount)
+
+	type Result struct {
+		models.StandupHistory
+		JoinedUserName string
+		JoinedAvatar   string
+	}
+	var results []Result
+
+	if err := query.Order("standup_histories.created_at desc").
+		Offset(offset).Limit(limit).
+		Scan(&results).Error; err != nil {
 		http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
 		return
 	}
 
 	var data []HistoryDTO
-	for _, h := range histories {
-		var profile models.UserProfile
-		s.DB.Where("user_id = ?", h.UserID).First(&profile)
-
-		userName := profile.Username
+	for _, r := range results {
+		userName := r.JoinedUserName
 		if userName == "" {
-			userName = "User " + h.UserID[len(h.UserID)-4:]
+			userName = "User " + r.UserID[len(r.UserID)-4:]
 		}
-
 		data = append(data, HistoryDTO{
-			ID:        h.ID,
-			UserID:    h.UserID,
+			ID:        r.ID,
+			UserID:    r.UserID,
 			UserName:  userName,
-			Avatar:    profile.Avatar,
-			Date:      h.Date,
-			Answers:   h.Answers,
-			IsSkipped: h.IsSkipped,
-			CreatedAt: h.CreatedAt.Format("2006-01-02 15:04:05"),
+			Avatar:    r.JoinedAvatar,
+			Date:      r.Date,
+			Answers:   r.Answers,
+			IsSkipped: r.IsSkipped,
+			CreatedAt: r.CreatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 
 	if data == nil {
 		data = []HistoryDTO{}
 	}
-
 	totalPages := int(math.Ceil(float64(totalCount) / float64(limit)))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"data":        data,
-		"total_count": totalCount,
-		"page":        page,
-		"total_pages": totalPages,
+		"data": data, "total_count": totalCount, "page": page, "total_pages": totalPages,
 	})
 }
 
