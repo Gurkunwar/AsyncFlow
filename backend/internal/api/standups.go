@@ -137,50 +137,57 @@ func (s *Server) HandleGetManagedStandups(dg *discordgo.Session) http.HandlerFun
 	}
 }
 
+func sendJSONError(w http.ResponseWriter, statusCode int, message string) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(statusCode)
+    json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
 func (s *Server) HandleCreateStandup(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+    if r.Method != http.MethodPost {
+        sendJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+        return
+    }
 
-	var payload struct {
-		Name            string   `json:"name"`
-		Time            string   `json:"time"`
-		Days            string   `json:"days"`
-		GuildID         string   `json:"guild_id"`
-		ReportChannelID string   `json:"report_channel_id"`
-		Questions       []string `json:"questions"`
-	}
+    var payload struct {
+        Name            string   `json:"name"`
+        Time            string   `json:"time"`
+        Days            string   `json:"days"`
+        GuildID         string   `json:"guild_id"`
+        ReportChannelID string   `json:"report_channel_id"`
+        Questions       []string `json:"questions"`
+    }
 
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
+    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+        sendJSONError(w, http.StatusBadRequest, "Invalid request payload")
+        return
+    }
 
-	managerID := r.Context().Value(UserIDKey).(string)
+    managerID := r.Context().Value(UserIDKey).(string)
 
-	standup := models.Standup{
-		Name:            payload.Name,
-		Time:            payload.Time,
-		Days:            payload.Days,
-		GuildID:         payload.GuildID,
-		ReportChannelID: payload.ReportChannelID,
-		ManagerID:       managerID,
-		Questions:       payload.Questions,
-	}
+    standup := models.Standup{
+        Name:            payload.Name,
+        Time:            payload.Time,
+        Days:            payload.Days,
+        GuildID:         payload.GuildID,
+        ReportChannelID: payload.ReportChannelID,
+        ManagerID:       managerID,
+        Questions:       payload.Questions,
+    }
 
-	createdStandup, err := s.StandupService.CreateStandup(standup)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+    createdStandup, err := s.StandupService.CreateStandup(standup)
+    if err != nil {
+        sendJSONError(w, http.StatusInternalServerError, err.Error())
+        return
+    }
 
-	s.StandupService.AddMemberToStandup(managerID, createdStandup.ID)
+    s.StandupService.AddMemberToStandup(managerID, createdStandup.ID)
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Standup created successfully!",
-	})
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(map[string]string{
+        "message": "Standup created successfully!",
+    })
 }
 
 func (s *Server) HandleUpdateStandup(w http.ResponseWriter, r *http.Request) {

@@ -22,29 +22,33 @@ type StandupService struct {
 }
 
 func (s *StandupService) verifyBotPermissions(channelID string) error {
-	if channelID == "" {
-		return nil
-	}
+    if channelID == "" {
+        return nil
+    }
 
-	botID := s.Session.State.User.ID
+    if s.Session.State == nil || s.Session.State.User == nil {
+        return errors.New("the bot is still connecting to Discord. Please wait 5 seconds and try again")
+    }
 
-	perms, err := s.Session.UserChannelPermissions(botID, channelID)
-	if err != nil {
-		return errors.New("cannot access channel. Ensure the bot is invited to the server and can view this channel")
-	}
+    botID := s.Session.State.User.ID
 
-	if perms&discordgo.PermissionViewChannel == 0 {
-		return errors.New("bot is missing 'View Channel' permission for the selected target channel")
-	}
-	if perms&discordgo.PermissionSendMessages == 0 {
-		return errors.New("bot is missing 'Send Messages' permission for the selected target channel")
-	}
+    perms, err := s.Session.UserChannelPermissions(botID, channelID)
+    if err != nil {
+        return errors.New("cannot access channel. Ensure the bot is invited to the server and can view this channel")
+    }
 
-	if perms&discordgo.PermissionCreatePublicThreads == 0 && perms&discordgo.PermissionCreatePrivateThreads == 0 {
-		return errors.New("bot is missing 'Create Public/Private Threads' permission for the selected target channel")
-	}
+    if perms&discordgo.PermissionViewChannel == 0 {
+        return errors.New("bot is missing 'View Channel' permission for the selected target channel")
+    }
+    if perms&discordgo.PermissionSendMessages == 0 {
+        return errors.New("bot is missing 'Send Messages' permission for the selected target channel")
+    }
 
-	return nil
+    if perms&discordgo.PermissionCreatePublicThreads == 0 && perms&discordgo.PermissionCreatePrivateThreads == 0 {
+        return errors.New("bot is missing 'Create Public/Private Threads' permission for the selected target channel")
+    }
+
+    return nil
 }
 
 func (s *StandupService) CreateStandup(input models.Standup) (*models.Standup, error) {
