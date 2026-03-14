@@ -288,8 +288,12 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 		},
 	})
 
-	h.finalizeStandup(session, state)
-	h.Redis.Del(context.Background(), "state:"+redisKey)
+	finalState := *state 
+	
+	go func() {
+		h.finalizeStandup(session, &finalState)
+		h.Redis.Del(context.Background(), "state:" + redisKey)
+	}()
 }
 
 func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupID uint, channelID,
@@ -351,54 +355,69 @@ func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupI
 
 func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 	intr *discordgo.InteractionCreate, standupID uint) {
+	
 	userID := utils.ExtractUserID(intr)
 
-	var standup models.Standup
-	if err := h.DB.First(&standup, standupID).Error; err != nil {
-		utils.UpdateMessage(session, intr, "❌ Standup not found. It may have been deleted.", nil)
+	err := session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Content:    "✅ You have successfully skipped today's standup. Processing...",
+			Components: []discordgo.MessageComponent{},
+		},
+	})
+	if err != nil {
+		log.Println("Failed to acknowledge skip interaction:", err)
 		return
 	}
 
-	utils.UpdateMessage(session, intr,
-		"✅ You have successfully skipped today's standup. Your team has been notified!", nil)
-
-	userProfile, userName, avatarURL := h.syncDiscordProfile(session, userID)
-
-	localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
-
-	history := models.StandupHistory{
-		UserID:    userID,
-		StandupID: standupID,
-		Date:      localToday,
-		Answers:   []string{"Skipped / OOO"},
-		IsSkipped: true,
-	}
-	h.DB.Create(&history)
-
-	author := &discordgo.MessageEmbedAuthor{
-		Name: fmt.Sprintf("%s's Standup", userName),
-	}
-	if avatarURL != "" {
-		author.IconURL = avatarURL
-	}
-
-	embed := &discordgo.MessageEmbed{
-		Author:      author,
-		Title:       fmt.Sprintf("⏭️ %s Update (Skipped)", standup.Name),
-		Description: fmt.Sprintf("<@%s> skipped their standup today.", userID),
-		Color:       0x808080,
-		Timestamp:   time.Now().Format(time.RFC3339),
-	}
-
-	h.sendThreadedReport(session, standup.ID, standup.ReportChannelID, standup.Name, userID, embed)
-
-	if h.StandupService.WSBroadcast != nil {
-		select {
-		case h.StandupService.WSBroadcast <- []byte(`{"type": "NEW_STANDUP_REPORT"}`):
-		default:
-			log.Println("⚠️ WS Broadcast channel blocked/full, skipping live update.")
+	go func() {
+		var standup models.Standup
+		if err := h.DB.First(&standup, standupID).Error; err != nil {
+			log.Println("Background Task Failed: Standup not found", err)
+			return
 		}
-	}
+
+		userProfile, userName, avatarURL := h.syncDiscordProfile(session, userID)
+
+		localToday := utils.GetUserLocalTime(userProfile.Timezone).Format("2006-01-02")
+
+		history := models.StandupHistory{
+			UserID:    userID,
+			StandupID: standupID,
+			Date:      localToday,
+			Answers:   []string{"Skipped / OOO"},
+			IsSkipped: true,
+		}
+		
+		if err := h.DB.Create(&history).Error; err != nil {
+			log.Println("❌ Error saving skip history to database:", err)
+		}
+
+		author := &discordgo.MessageEmbedAuthor{
+			Name: fmt.Sprintf("%s's Standup", userName),
+		}
+		if avatarURL != "" {
+			author.IconURL = avatarURL
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Author:      author,
+			Title:       fmt.Sprintf("⏭️ %s Update (Skipped)", standup.Name),
+			Description: fmt.Sprintf("<@%s> skipped their standup today.", userID),
+			Color:       0x808080,
+			Timestamp:   time.Now().Format(time.RFC3339),
+		}
+
+		h.sendThreadedReport(session, standup.ID, standup.ReportChannelID, standup.Name, userID, embed)
+
+		if h.StandupService.WSBroadcast != nil {
+			select {
+			case h.StandupService.WSBroadcast <- []byte(`{"type": "NEW_STANDUP_REPORT"}`):
+			default:
+				log.Println("⚠️ WS Broadcast channel blocked/full, skipping live update.")
+			}
+		}
+	}()
 }
 
 func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.StandupState) {
