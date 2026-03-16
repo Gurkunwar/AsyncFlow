@@ -165,8 +165,8 @@ export default function CreatePollModal({ isOpen, onClose }) {
             {steps.map((step) => (
               <div key={step.num} className="relative flex items-center gap-4">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 
-                    z-10 transition-colors shadow-md ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 z-10 
+                    transition-colors shadow-md ${
                       currentStep >= step.num
                         ? "bg-[#5865F2] text-white ring-4 ring-[#5865F2]/20"
                         : "bg-[#1e1f22] text-[#99AAB5] border border-[#404249]"
@@ -215,7 +215,6 @@ export default function CreatePollModal({ isOpen, onClose }) {
                 </h3>
 
                 <div className="space-y-6">
-                  {/* Custom Guild Dropdown */}
                   <div className="relative">
                     <label
                       className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 
@@ -238,8 +237,8 @@ export default function CreatePollModal({ isOpen, onClose }) {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth="2"
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 
-                            01-15.357-2m15.357 2H15"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 
+                            8.003 0 01-15.357-2m15.357 2H15"
                           />
                         </svg>
                       </button>
@@ -392,13 +391,11 @@ export default function CreatePollModal({ isOpen, onClose }) {
               </div>
             )}
 
-            {/* STEP 2: DETAILS */}
             {currentStep === 2 && (
               <div className="space-y-6 animate-fade-in">
                 <h3 className="text-2xl font-bold text-white mb-6">
                   What's the question?
                 </h3>
-
                 <div>
                   <label className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 block">
                     Question
@@ -416,7 +413,6 @@ export default function CreatePollModal({ isOpen, onClose }) {
                     required
                   />
                 </div>
-
                 <div className="relative">
                   <label className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider mb-2 block">
                     Duration
@@ -445,11 +441,10 @@ export default function CreatePollModal({ isOpen, onClose }) {
                       />
                     </svg>
                   </button>
-
                   {activeDropdown === "duration" && (
                     <div
-                      className="absolute z-50 w-full mt-2 bg-[#2b2d31] border border-[#3f4147] rounded-lg 
-                    shadow-2xl py-1 overflow-hidden"
+                      className="absolute z-50 w-full mt-2 bg-[#2b2d31] border border-[#3f4147] 
+                    rounded-lg shadow-2xl py-1 overflow-hidden"
                     >
                       {POLL_DURATIONS.map((d) => (
                         <div
@@ -486,8 +481,8 @@ export default function CreatePollModal({ isOpen, onClose }) {
                     </div>
                   )}
                   <p
-                    className="text-xs text-[#99AAB5] mt-3 bg-[#2b2d31] p-3 rounded-lg border border-[#3f4147] 
-                  flex items-start gap-2"
+                    className="text-xs text-[#99AAB5] mt-3 bg-[#2b2d31] p-3 rounded-lg border 
+                  border-[#3f4147] flex items-start gap-2"
                   >
                     <span className="text-lg">🔒</span>
                     <span>
@@ -499,13 +494,11 @@ export default function CreatePollModal({ isOpen, onClose }) {
               </div>
             )}
 
-            {/* STEP 3: OPTIONS */}
             {currentStep === 3 && (
               <div className="space-y-4 animate-fade-in flex flex-col h-full">
                 <h3 className="text-2xl font-bold text-white mb-4">
                   Add your answers
                 </h3>
-
                 <label
                   className="text-[11px] font-extrabold text-[#99AAB5] uppercase tracking-wider flex 
                 justify-between items-center mb-2"
@@ -572,8 +565,8 @@ export default function CreatePollModal({ isOpen, onClose }) {
                   <button
                     type="button"
                     onClick={addOption}
-                    className="mt-4 flex items-center gap-2 text-sm text-[#99AAB5] hover:text-[#5865F2] font-bold
-                    transition-colors w-max group"
+                    className="mt-4 flex items-center gap-2 text-sm text-[#99AAB5] hover:text-[#5865F2] 
+                    font-bold transition-colors w-max group"
                   >
                     <div className="bg-[#2b2d31] p-1 rounded group-hover:bg-[#5865F2]/10 transition-colors">
                       <svg
@@ -643,8 +636,8 @@ export default function CreatePollModal({ isOpen, onClose }) {
                       <path
                         className="opacity-75"
                         fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 
-                        5.824 3 7.938l3-2.647z"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 
+                        3 7.938l3-2.647z"
                       ></path>
                     </svg>
                     Publishing...

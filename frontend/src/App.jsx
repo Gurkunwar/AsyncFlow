@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./features/auth/Login";
 import AuthCallback from "./features/auth/AuthCallback";
 import Dashboard from "./features/dashboard/Dashboard";
-import Home from "./features/dashboard/Home";
+import Home from "./components/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MyStandups from "./features/standups/MyStandups";
 import ManageStandup from "./features/standups/ManageStandup";

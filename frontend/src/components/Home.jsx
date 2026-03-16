@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../../components/Navbar";
+import Navbar from "./Navbar";
 
 function useIntersectionObserver(options = {}) {
   const elementRef = useRef(null);
@@ -18,7 +18,6 @@ function useIntersectionObserver(options = {}) {
     );
 
     if (elementRef.current) {
-      // Initialize with hidden state
       elementRef.current.classList.add(
         "opacity-0",
         "translate-y-8",
@@ -35,7 +34,6 @@ function useIntersectionObserver(options = {}) {
   return elementRef;
 }
 
-// A reusable wrapper component for the scroll animation
 const ScrollFadeIn = ({ children, delay = 0, className = "" }) => {
   const ref = useIntersectionObserver();
   return (
