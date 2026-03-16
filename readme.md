@@ -212,10 +212,9 @@ Recommended: - Render - Fly.io - Railway
 
 # 📸 Screenshots
 
-Add screenshots like:
-    ![dashboard.png](docs/images/dashboard.png)
-    ![poll-results](docs/images/poll-results.png)
-    ![history](docs/images/history.png)
+![dashboard.png](docs/images/dashboard.png)
+![poll-results](docs/images/poll-results.png)
+![history](docs/images/history.png)
 
 ------------------------------------------------------------------------
 
