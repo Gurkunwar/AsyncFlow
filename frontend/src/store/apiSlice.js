@@ -96,6 +96,10 @@ export const asyncFlowApi = createApi({
         body: { standup_id: parseInt(id) },
       }),
     }),
+    getStandupStats: builder.query({
+      query: ({ id, days }) => `/standups/stats?id=${id}&days=${days}`,
+      providesTags: ["Standups"],
+    }),
 
     getManagedPolls: builder.query({
       query: ({ filter, page, limit = 12, search = "", guild_id = "" }) =>
@@ -168,6 +172,7 @@ export const {
   useDeleteStandupMutation,
   useGetManagedStandupsQuery,
   useTestStandupMutation,
+  useGetStandupStatsQuery,
 
   useGetManagedPollsQuery,
   useGetPollByIdQuery,

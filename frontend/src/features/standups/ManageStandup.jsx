@@ -14,6 +14,7 @@ import {
   useTestStandupMutation,
   useGetUserGuildsQuery,
 } from "../../store/apiSlice";
+import AnalyticsTab from "./tabs/AnalyticsTab";
 
 export default function ManageStandup() {
   const { id } = useParams();
@@ -100,6 +101,7 @@ export default function ManageStandup() {
   const tabs = [
     { id: "members", label: "👥 Team Members" },
     { id: "settings", label: "⚙️ Configuration" },
+    { id: "analytics", label: "📈 Analytics" },
     { id: "history", label: "📜 Report Logs" },
   ];
 
@@ -164,11 +166,15 @@ export default function ManageStandup() {
             >
               {tab.label}
               {activeTab === tab.id ? (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#5865F2] rounded-t-md 
-                shadow-[0_-2px_10px_rgba(88,101,242,0.5)]" />
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-1 bg-[#5865F2] rounded-t-md 
+                shadow-[0_-2px_10px_rgba(88,101,242,0.5)]"
+                />
               ) : (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#404249] rounded-t-md 
-                opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-1 bg-[#404249] rounded-t-md 
+                opacity-0 group-hover:opacity-100 transition-opacity"
+                />
               )}
             </button>
           ))}
@@ -197,6 +203,9 @@ export default function ManageStandup() {
             onTestRun={triggerTestRun}
             isTesting={isTesting}
           />
+        )}
+        {activeTab === "analytics" && (
+          <AnalyticsTab standupId={id} guildMembers={guildMembers} />
         )}
         {activeTab === "history" && (
           <HistoryTab

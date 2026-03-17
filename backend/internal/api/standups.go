@@ -138,56 +138,56 @@ func (s *Server) HandleGetManagedStandups(dg *discordgo.Session) http.HandlerFun
 }
 
 func sendJSONError(w http.ResponseWriter, statusCode int, message string) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(statusCode)
-    json.NewEncoder(w).Encode(map[string]string{"error": message})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
 func (s *Server) HandleCreateStandup(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        sendJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-        return
-    }
+	if r.Method != http.MethodPost {
+		sendJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
 
-    var payload struct {
-        Name            string   `json:"name"`
-        Time            string   `json:"time"`
-        Days            string   `json:"days"`
-        GuildID         string   `json:"guild_id"`
-        ReportChannelID string   `json:"report_channel_id"`
-        Questions       []string `json:"questions"`
-    }
+	var payload struct {
+		Name            string   `json:"name"`
+		Time            string   `json:"time"`
+		Days            string   `json:"days"`
+		GuildID         string   `json:"guild_id"`
+		ReportChannelID string   `json:"report_channel_id"`
+		Questions       []string `json:"questions"`
+	}
 
-    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-        sendJSONError(w, http.StatusBadRequest, "Invalid request payload")
-        return
-    }
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		sendJSONError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
 
-    managerID := r.Context().Value(UserIDKey).(string)
+	managerID := r.Context().Value(UserIDKey).(string)
 
-    standup := models.Standup{
-        Name:            payload.Name,
-        Time:            payload.Time,
-        Days:            payload.Days,
-        GuildID:         payload.GuildID,
-        ReportChannelID: payload.ReportChannelID,
-        ManagerID:       managerID,
-        Questions:       payload.Questions,
-    }
+	standup := models.Standup{
+		Name:            payload.Name,
+		Time:            payload.Time,
+		Days:            payload.Days,
+		GuildID:         payload.GuildID,
+		ReportChannelID: payload.ReportChannelID,
+		ManagerID:       managerID,
+		Questions:       payload.Questions,
+	}
 
-    createdStandup, err := s.StandupService.CreateStandup(standup)
-    if err != nil {
-        sendJSONError(w, http.StatusInternalServerError, err.Error())
-        return
-    }
+	createdStandup, err := s.StandupService.CreateStandup(standup)
+	if err != nil {
+		sendJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
-    s.StandupService.AddMemberToStandup(managerID, createdStandup.ID)
+	s.StandupService.AddMemberToStandup(managerID, createdStandup.ID)
 
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(map[string]string{
-        "message": "Standup created successfully!",
-    })
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Standup created successfully!",
+	})
 }
 
 func (s *Server) HandleUpdateStandup(w http.ResponseWriter, r *http.Request) {
@@ -445,4 +445,96 @@ func (s *Server) HandleTestRunStandup(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Test run initiated! Check your Discord DMs."})
+}
+
+func (s *Server) HandleGetStandupStats(w http.ResponseWriter, r *http.Request) {
+	standupIDStr := r.URL.Query().Get("id")
+	standupID, _ := strconv.ParseUint(standupIDStr, 10, 32)
+
+	daysStr := r.URL.Query().Get("days")
+	days, _ := strconv.Atoi(daysStr)
+	if days <= 0 {
+		days = 30
+	}
+
+	managerID := r.Context().Value(UserIDKey).(string)
+
+	var standup models.Standup
+	if err := s.DB.Preload("Participants").Where("id = ? AND manager_id = ?",
+		standupID, managerID).First(&standup).Error; err != nil {
+		http.Error(w, "Unauthorized or not found", http.StatusUnauthorized)
+		return
+	}
+
+	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -days)
+
+	totalDays, _ := s.StandupService.GetTotalStandupDays(uint(standupID), startDate, endDate)
+	histories, _ := s.StandupService.GetHistoryForDateRange(uint(standupID), startDate, endDate)
+
+	type UserStatDTO struct {
+		UserID   string `json:"user_id"`
+		Username string `json:"username"`
+		Avatar   string `json:"avatar"`
+		Attended int    `json:"attended"`
+		Skipped  int    `json:"skipped"`
+		Ignored  int    `json:"ignored"`
+		Health   int    `json:"health"`
+	}
+
+	statsMap := make(map[string]*UserStatDTO)
+
+	for _, p := range standup.Participants {
+		var profile models.UserProfile
+		s.DB.Where("user_id = ?", p.UserID).First(&profile)
+
+		username := profile.Username
+		if username == "" {
+			username = "User " + p.UserID[len(p.UserID)-4:]
+		}
+
+		statsMap[p.UserID] = &UserStatDTO{
+			UserID:   p.UserID,
+			Username: username,
+			Avatar:   profile.Avatar,
+		}
+	}
+
+	for _, hs := range histories {
+		if stat, exists := statsMap[hs.UserID]; exists {
+			isSkipped := hs.IsSkipped
+			if len(hs.Answers) > 0 && hs.Answers[0] == "Skipped / OOO" {
+				isSkipped = true
+			}
+			if isSkipped {
+				stat.Skipped++
+			} else {
+				stat.Attended++
+			}
+		}
+	}
+
+	var results []UserStatDTO
+	for _, stat := range statsMap {
+		ignored := int(totalDays) - (stat.Attended + stat.Skipped)
+		if ignored < 0 {
+			ignored = 0
+		}
+		stat.Ignored = ignored
+
+		health := 0
+		if totalDays > 0 {
+			// Health = (Attended / Total Days) * 100
+			health = int(math.Round(float64(stat.Attended) / float64(totalDays) * 100))
+		}
+		stat.Health = health
+		results = append(results, *stat)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"total_days":       totalDays,
+		"days_looked_back": days,
+		"stats":            results,
+	})
 }
