@@ -57,7 +57,10 @@ func (h *StandupHandler) StandupRouter(session *discordgo.Session, intr *discord
 		case "standup-info":
 			h.handleStandupInfo(session, intr)
 			return true
-		}
+		case "admin-trigger-summary":
+            h.handleAdminTriggerSummary(session, intr)
+            return true
+        }
 
 	case discordgo.InteractionMessageComponent:
 		customID := intr.MessageComponentData().CustomID
@@ -158,6 +161,7 @@ func (h *StandupHandler) handleAutocomplete(session *discordgo.Session, intr *di
 		data.Name == "remove-member" ||
 		data.Name == "edit-standup" ||
 		data.Name == "standup-info" ||
+		data.Name == "admin-trigger-summary" ||
 		data.Name == "history" {
 
 		choices := []*discordgo.ApplicationCommandOptionChoice{}

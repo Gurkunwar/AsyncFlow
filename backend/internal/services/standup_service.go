@@ -22,33 +22,33 @@ type StandupService struct {
 }
 
 func (s *StandupService) verifyBotPermissions(channelID string) error {
-    if channelID == "" {
-        return nil
-    }
+	if channelID == "" {
+		return nil
+	}
 
-    if s.Session.State == nil || s.Session.State.User == nil {
-        return errors.New("the bot is still connecting to Discord. Please wait 5 seconds and try again")
-    }
+	if s.Session.State == nil || s.Session.State.User == nil {
+		return errors.New("the bot is still connecting to Discord. Please wait 5 seconds and try again")
+	}
 
-    botID := s.Session.State.User.ID
+	botID := s.Session.State.User.ID
 
-    perms, err := s.Session.UserChannelPermissions(botID, channelID)
-    if err != nil {
-        return errors.New("cannot access channel. Ensure the bot is invited to the server and can view this channel")
-    }
+	perms, err := s.Session.UserChannelPermissions(botID, channelID)
+	if err != nil {
+		return errors.New("cannot access channel. Ensure the bot is invited to the server and can view this channel")
+	}
 
-    if perms&discordgo.PermissionViewChannel == 0 {
-        return errors.New("bot is missing 'View Channel' permission for the selected target channel")
-    }
-    if perms&discordgo.PermissionSendMessages == 0 {
-        return errors.New("bot is missing 'Send Messages' permission for the selected target channel")
-    }
+	if perms&discordgo.PermissionViewChannel == 0 {
+		return errors.New("bot is missing 'View Channel' permission for the selected target channel")
+	}
+	if perms&discordgo.PermissionSendMessages == 0 {
+		return errors.New("bot is missing 'Send Messages' permission for the selected target channel")
+	}
 
-    if perms&discordgo.PermissionCreatePublicThreads == 0 && perms&discordgo.PermissionCreatePrivateThreads == 0 {
-        return errors.New("bot is missing 'Create Public/Private Threads' permission for the selected target channel")
-    }
+	if perms&discordgo.PermissionCreatePublicThreads == 0 && perms&discordgo.PermissionCreatePrivateThreads == 0 {
+		return errors.New("bot is missing 'Create Public/Private Threads' permission for the selected target channel")
+	}
 
-    return nil
+	return nil
 }
 
 func (s *StandupService) CreateStandup(input models.Standup) (*models.Standup, error) {
@@ -251,4 +251,62 @@ func (s *StandupService) TestRun(standupID uint, userID string) error {
 	}
 
 	return errors.New("trigger function not configured on server start")
+}
+
+func (s *StandupService) GetAllStandupsWithParticipants() ([]models.Standup, error) {
+	var standups []models.Standup
+	err := s.DB.Preload("Participants").Find(&standups).Error
+	return standups, err
+}
+
+func (s *StandupService) GetTotalStandupDays(standupID uint, startDate, endDate time.Time) (int64, error) {
+	var count int64
+	err := s.DB.Model(&models.StandupHistory{}).
+		Where("standup_id = ? AND date >= ? AND date <= ?", standupID,
+			startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).
+		Distinct("date").Count(&count).Error
+
+	return count, err
+}
+
+func (s *StandupService) GetHistoryForDateRange(standupID uint, startDate,
+	endDate time.Time) ([]models.StandupHistory, error) {
+
+	var histories []models.StandupHistory
+	err := s.DB.Where("standup_id = ? AND date >= ? AND date <= ?", standupID,
+		startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).
+		Find(&histories).Error
+
+	return histories, err
+}
+
+func (s *StandupService) GetUserStandupsInGuild(userID, guildID string) ([]models.Standup, error) {
+	var allStandups []models.Standup
+	
+	err := s.DB.Preload("Participants").Where("guild_id = ?", guildID).Find(&allStandups).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var userStandups []models.Standup
+	
+	for _, st := range allStandups {
+		for _, p := range st.Participants {
+			if p.UserID == userID {
+				userStandups = append(userStandups, st)
+				break
+			}
+		}
+	}
+
+	return userStandups, nil
+}
+
+func (s *StandupService) GetStandupByNameInGuild(name, guildID string) (models.Standup, error) {
+	var standup models.Standup
+	err := s.DB.Preload("Participants").
+		Where("guild_id = ? AND name = ?", guildID, name).
+		First(&standup).Error
+
+	return standup, err
 }

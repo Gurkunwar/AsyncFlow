@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
 	"github.com/Gurkunwar/asyncflow/internal/models"
@@ -15,7 +16,8 @@ func (h *StandupHandler) verifyBotPermissionsForCommand(session *discordgo.Sessi
 
 	perms, err := session.UserChannelPermissions(botID, channelID)
 	if err != nil {
-		return fmt.Errorf("I cannot access <#%s>. Please make sure I am invited and have permission to view it.", channelID)
+		return fmt.Errorf("I cannot access <#%s>. Please make sure I am invited and have permission to view it.",
+			channelID)
 	}
 
 	missing := make([]string, 0)
@@ -594,4 +596,155 @@ func (h *StandupHandler) handleFinishQuestionEdit(session *discordgo.Session,
 	utils.UpdateMessage(session, intr,
 		fmt.Sprintf("✅ **Done!** The settings and questions for **%s** are fully saved and locked in.",
 			standup.Name), nil)
+}
+
+func (h *StandupHandler) handleAdminTriggerSummary(session *discordgo.Session, intr *discordgo.InteractionCreate) {
+    data := intr.ApplicationCommandData()
+
+    var standupName string
+    var targetUser *discordgo.User
+    days := 30
+
+    for _, opt := range data.Options {
+        switch opt.Name {
+        case "standup_name":
+            standupName = opt.StringValue()
+        case "user":
+            targetUser = opt.UserValue(session)
+        case "days":
+            days = int(opt.IntValue())
+        }
+    }
+
+    session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+    })
+
+    standupsToProcess, err := h.getTargetStandups(intr.GuildID, standupName, targetUser)
+    if err != nil {
+        session.InteractionResponseEdit(intr.Interaction, 
+			&discordgo.WebhookEdit{Content: utils.Ptr("⛔ " + err.Error())})
+        return
+    }
+
+    embeds := h.buildSummaryEmbeds(session, standupsToProcess, targetUser, days)
+    if len(embeds) == 0 {
+        session.InteractionResponseEdit(intr.Interaction,
+            &discordgo.WebhookEdit{Content: utils.Ptr("No data found for the selected options.")})
+        return
+    }
+
+    notice := ""
+    if len(embeds) > 10 {
+        embeds = embeds[:10]
+        notice = "⚠️ *Showing the first 10 standups due to Discord's message limits.*"
+    }
+
+    session.InteractionResponseEdit(intr.Interaction, &discordgo.WebhookEdit{
+        Content: utils.Ptr(notice),
+        Embeds:  &embeds,
+    })
+}
+
+func (h *StandupHandler) getTargetStandups(guildID, standupName string,
+    targetUser *discordgo.User) ([]models.Standup, error) {
+
+    if standupName != "" {
+        st, err := h.StandupService.GetStandupByNameInGuild(standupName, guildID)
+        if err != nil {
+            return nil, fmt.Errorf("Standup not found in this server.")
+        }
+        return []models.Standup{st}, nil
+    }
+
+    if targetUser != nil {
+        sts, err := h.StandupService.GetUserStandupsInGuild(targetUser.ID, guildID)
+        if err != nil || len(sts) == 0 {
+            return nil, fmt.Errorf("User is not part of any standups in this server.")
+        }
+        return sts, nil
+    }
+
+    var allStandups []models.Standup
+    err := h.DB.Preload("Participants").Where("guild_id = ?", guildID).Find(&allStandups).Error
+    
+    if err != nil || len(allStandups) == 0 {
+        return nil, fmt.Errorf("No active standups found in this server.")
+    }
+
+    return allStandups, nil
+}
+
+func (h *StandupHandler) buildSummaryEmbeds(session *discordgo.Session,
+	standups []models.Standup, targetUser *discordgo.User, days int) []*discordgo.MessageEmbed {
+
+	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -days)
+	var embeds []*discordgo.MessageEmbed
+
+	for _, standup := range standups {
+		totalDays, _ := h.StandupService.GetTotalStandupDays(standup.ID, startDate, endDate)
+		if totalDays == 0 {
+			continue
+		}
+
+		histories, _ := h.StandupService.GetHistoryForDateRange(standup.ID, startDate, endDate)
+		stats := make(map[string]*UserStats)
+
+		for _, p := range standup.Participants {
+			if targetUser != nil && p.UserID != targetUser.ID {
+				continue
+			}
+			stats[p.UserID] = &UserStats{Attended: 0, Skipped: 0}
+		}
+
+		if len(stats) == 0 {
+			continue
+		}
+
+		for _, hs := range histories {
+			if stat, exists := stats[hs.UserID]; exists {
+				isSkipped := hs.IsSkipped
+				if len(hs.Answers) > 0 && hs.Answers[0] == "Skipped / OOO" {
+					isSkipped = true
+				}
+				if isSkipped {
+					stat.Skipped++
+				} else {
+					stat.Attended++
+				}
+			}
+		}
+
+		title := fmt.Sprintf("📊 Summary for %s", standup.Name)
+		if targetUser != nil {
+			title = fmt.Sprintf("📊 %s's Summary for %s", targetUser.Username, standup.Name)
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Title:       title,
+			Description: fmt.Sprintf("Last **%d days** (Ran %d times)", days, totalDays),
+			Color:       0x5865F2,
+		}
+
+		for userID, stat := range stats {
+			ignored := max(int(totalDays) - (stat.Attended + stat.Skipped), 0)
+
+			statString := fmt.Sprintf("<@%s>\n✅ **Attended:** %d\n🌴 **Skipped:** %d\n👻 **Ignored:** %d", 
+                userID, stat.Attended, stat.Skipped, ignored)
+
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:   "\u200B",
+				Value:  statString,
+				Inline: true,
+			})
+		}
+
+		if len(embed.Fields) > 0 {
+			embeds = append(embeds, embed)
+		}
+	}
+
+	return embeds
 }

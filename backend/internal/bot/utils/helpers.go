@@ -104,3 +104,7 @@ func ParseCommandOptions(intr *discordgo.InteractionCreate) map[string]*discordg
 	}
 	return optionMap
 }
+
+func Ptr(s string) *string {
+	return &s
+}

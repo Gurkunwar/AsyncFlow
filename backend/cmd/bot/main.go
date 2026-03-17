@@ -8,6 +8,7 @@ import (
 
 	"github.com/Gurkunwar/asyncflow/internal/api"
 	"github.com/Gurkunwar/asyncflow/internal/bot"
+	"github.com/Gurkunwar/asyncflow/internal/bot/standup"
 	"github.com/Gurkunwar/asyncflow/internal/database"
 	"github.com/Gurkunwar/asyncflow/internal/services"
 	"github.com/Gurkunwar/asyncflow/internal/store"
@@ -50,6 +51,7 @@ func main() {
 	dg.AddHandler(handler.HandleGuildCreate)
 
 	standupSvc.StartTimezoneWorker()
+	standup.InitCronScheduler(standupSvc)
 
 	if err := dg.Open(); err != nil {
 		log.Fatal(err)
