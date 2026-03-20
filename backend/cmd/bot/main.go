@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	_ = godotenv.Load()
 
 	db, err := database.InitDB()
 	if err != nil {
@@ -49,6 +49,7 @@ func main() {
 	dg.AddHandler(handler.Polls.OnVoteAdd)
     dg.AddHandler(handler.Polls.OnVoteRemove)
 	dg.AddHandler(handler.HandleGuildCreate)
+	dg.AddHandler(handler.OnReady)
 
 	standupSvc.StartTimezoneWorker()
 	standup.InitCronScheduler(standupSvc)
@@ -64,7 +65,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	bot.RegisterCommands(dg)
+	if os.Getenv("REGISTER_COMMANDS") == "true" {
+		bot.RegisterCommands(dg)
+	} else {
+		log.Println("⏭️ Skipping command registration to avoid Cloudflare blocks.")
+	}
 
 	log.Println("AsyncFlow is live!")
 	stop := make(chan os.Signal, 1)

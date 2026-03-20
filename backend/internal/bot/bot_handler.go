@@ -21,6 +21,7 @@ type BotHanlder struct {
 	UserService    *services.UserService
 	Standups       *standup.StandupHandler
 	Polls          *poll.PollHandler
+	IsReady        bool
 }
 
 func NewBotHandler(session *discordgo.Session,
@@ -117,6 +118,10 @@ func (h *BotHanlder) HandleGuildCreate(session *discordgo.Session, guildCreate *
 		return
 	}
 
+	if !h.IsReady {
+		return
+	}
+
 	var targetChannelID string
 	if guildCreate.Guild.SystemChannelID != "" {
 		targetChannelID = guildCreate.Guild.SystemChannelID
@@ -130,6 +135,12 @@ func (h *BotHanlder) HandleGuildCreate(session *discordgo.Session, guildCreate *
 	}
 
 	if targetChannelID == "" {
+		return
+	}
+
+	perms, err := session.UserChannelPermissions(session.State.User.ID, targetChannelID)
+	if err == nil && (perms&discordgo.PermissionSendMessages == 0 || perms&discordgo.PermissionViewChannel == 0) {
+		log.Printf("⏭️ Skipping welcome message in %s: Missing Send/View permissions.", guildCreate.Guild.Name)
 		return
 	}
 
@@ -172,4 +183,9 @@ func (h *BotHanlder) HandleGuildCreate(session *discordgo.Session, guildCreate *
 	} else {
 		log.Printf("🎉 Welcomed new server: %s", guildCreate.Guild.Name)
 	}
+}
+
+func (h *BotHanlder) OnReady(session *discordgo.Session, r *discordgo.Ready) {
+	h.IsReady = true
+	log.Println("✅ Bot has finished loading all existing servers.")
 }
