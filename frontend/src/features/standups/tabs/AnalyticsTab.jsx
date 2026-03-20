@@ -67,7 +67,8 @@ export default function AnalyticsTab({ standupId, guildMembers = [] }) {
 
           <button
             onClick={exportToCSV}
-            className="cursor-pointer bg-[#2b2d31] hover:bg-[#35373c] text-white text-sm font-bold px-4 py-2 rounded-lg border border-[#3f4147] transition-colors"
+            className="cursor-pointer bg-[#2b2d31] hover:bg-[#35373c] text-white text-sm font-bold 
+            px-4 py-2 rounded-lg border border-[#3f4147] transition-colors"
           >
             📥 Export CSV
           </button>
@@ -94,7 +95,6 @@ export default function AnalyticsTab({ standupId, guildMembers = [] }) {
             </thead>
             <tbody className="divide-y divide-[#1e1f22]">
               {stats.map((stat) => {
-                // 👇 CROSS-REFERENCE FOR FRESH AVATAR 👇
                 const freshMember = guildMembers.find(
                   (m) => m.id === stat.user_id,
                 );
@@ -120,7 +120,10 @@ export default function AnalyticsTab({ standupId, guildMembers = [] }) {
                             }}
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-[#5865F2] flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-inner">
+                          <div
+                            className="w-8 h-8 rounded-full bg-[#5865F2] flex items-center 
+                          justify-center font-bold text-white text-xs shrink-0 shadow-inner"
+                          >
                             {displayUsername.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -140,9 +143,19 @@ export default function AnalyticsTab({ standupId, guildMembers = [] }) {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-2 flex-1 bg-[#1e1f22] rounded-full overflow-hidden border border-[#3f4147]/50">
+                        <div
+                          className="h-2 flex-1 bg-[#1e1f22] rounded-full overflow-hidden border 
+                        border-[#3f4147]/50"
+                        >
                           <div
-                            className={`h-full rounded-full transition-all duration-1000 ${stat.health >= 70 ? "bg-[#23a559]" : stat.health >= 40 ? "bg-[#facc15]" : "bg-[#da373c]"}`}
+                            className={`h-full rounded-full transition-all duration-1000 
+                                ${
+                                  stat.health >= 70
+                                    ? "bg-[#23a559]"
+                                    : stat.health >= 40
+                                      ? "bg-[#facc15]"
+                                      : "bg-[#da373c]"
+                                }`}
                             style={{ width: `${stat.health}%` }}
                           />
                         </div>

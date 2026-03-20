@@ -53,18 +53,18 @@ func main() {
 	standupSvc.StartTimezoneWorker()
 	standup.InitCronScheduler(standupSvc)
 
-	if err := dg.Open(); err != nil {
-		log.Fatal(err)
-	}
-
-	bot.RegisterCommands(dg)
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
 	go apiServer.Start(":" + port)
+
+	if err := dg.Open(); err != nil {
+		log.Fatal(err)
+	}
+
+	bot.RegisterCommands(dg)
 
 	log.Println("AsyncFlow is live!")
 	stop := make(chan os.Signal, 1)
