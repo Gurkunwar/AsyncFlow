@@ -9,6 +9,7 @@ import (
 
 	"github.com/Gurkunwar/asyncflow/internal/bot/utils"
 	"github.com/Gurkunwar/asyncflow/internal/models"
+	"github.com/Gurkunwar/asyncflow/internal/services"
 	"github.com/Gurkunwar/asyncflow/internal/store"
 	"github.com/bwmarrin/discordgo"
 	"github.com/redis/go-redis/v9"
@@ -288,11 +289,11 @@ func (h *StandupHandler) handleSingleAnswerSubmit(session *discordgo.Session,
 		},
 	})
 
-	finalState := *state 
-	
+	finalState := *state
+
 	go func() {
 		h.finalizeStandup(session, &finalState)
-		h.Redis.Del(context.Background(), "state:" + redisKey)
+		h.Redis.Del(context.Background(), "state:"+redisKey)
 	}()
 }
 
@@ -355,7 +356,7 @@ func (h *StandupHandler) sendThreadedReport(session *discordgo.Session, standupI
 
 func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 	intr *discordgo.InteractionCreate, standupID uint) {
-	
+
 	userID := utils.ExtractUserID(intr)
 
 	err := session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
@@ -388,13 +389,21 @@ func (h *StandupHandler) handleSkipStandup(session *discordgo.Session,
 			Answers:   []string{"Skipped / OOO"},
 			IsSkipped: true,
 		}
-		
+
 		if err := h.DB.Create(&history).Error; err != nil {
 			log.Println("❌ Error saving skip history to database:", err)
 		}
 
+		userService := &services.UserService{DB: h.DB}
+		profile, err := userService.RecordActivity(userID)
+
+		streakText := ""
+		if err == nil && profile.CurrentStreak > 0 {
+			streakText = fmt.Sprintf(" | 🔥 %d Day Streak", profile.CurrentStreak)
+		}
+
 		author := &discordgo.MessageEmbedAuthor{
-			Name: fmt.Sprintf("%s's Standup", userName),
+			Name: fmt.Sprintf("%s's Standup%s", userName, streakText),
 		}
 		if avatarURL != "" {
 			author.IconURL = avatarURL
@@ -444,6 +453,13 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 		log.Println("❌ Error saving standup history to database:", err)
 	}
 
+	userService := &services.UserService{DB: h.DB}
+	profile, err := userService.RecordActivity(state.UserID)
+	streakText := ""
+	if err == nil && profile.CurrentStreak > 0 {
+		streakText = fmt.Sprintf(" | 🔥 %d Day Streak", profile.CurrentStreak)
+	}
+
 	var fields []*discordgo.MessageEmbedField
 	for i, answer := range state.Answers {
 		questionText := "Update"
@@ -458,7 +474,7 @@ func (h *StandupHandler) finalizeStandup(s *discordgo.Session, state *models.Sta
 	}
 
 	author := &discordgo.MessageEmbedAuthor{
-		Name: fmt.Sprintf("%s's Standup", userName),
+		Name: fmt.Sprintf("%s's Standup%s", userName, streakText),
 	}
 	if avatarURL != "" {
 		author.IconURL = avatarURL

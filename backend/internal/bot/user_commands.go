@@ -120,7 +120,6 @@ func (h *BotHanlder) handleAddHypeButton(session *discordgo.Session, intr *disco
 }
 
 func (h *BotHanlder) handleHypeClick(session *discordgo.Session, intr *discordgo.InteractionCreate) {
-	// Get the name of the person who clicked it
 	clickerName := intr.Member.User.Username
 	if intr.Member.Nick != "" {
 		clickerName = intr.Member.Nick
