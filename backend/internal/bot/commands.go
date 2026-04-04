@@ -355,4 +355,8 @@ var Commands = []*discordgo.ApplicationCommand{
 			},
 		},
 	},
+	{
+		Name: "add-hype-button",
+		Type: discordgo.MessageApplicationCommand,
+	},
 }

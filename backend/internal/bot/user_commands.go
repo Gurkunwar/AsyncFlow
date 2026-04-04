@@ -69,6 +69,71 @@ func (h *BotHanlder) handleDeleteMyData(session *discordgo.Session, intr *discor
 	})
 }
 
+func (h *BotHanlder) handleAddHypeButton(session *discordgo.Session, intr *discordgo.InteractionCreate) {
+	data := intr.ApplicationCommandData()
+	targetMessageID := data.TargetID 
+	
+	msg := data.Resolved.Messages[targetMessageID]
+
+	if msg.Author.ID != session.State.User.ID {
+		session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "⚠️ You can only add hype buttons to AsyncFlow standups!",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	hypeButton := discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "🔥 Hype!",
+				Style:    discordgo.SuccessButton,
+				CustomID: "btn_hype",
+			},
+		},
+	}
+
+	components := msg.Components
+	components = append(components, hypeButton)
+
+	_, err := session.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		ID:         targetMessageID,
+		Channel:    intr.ChannelID,
+		Components: &components,
+	})
+
+	if err != nil {
+		log.Printf("Failed to add hype button: %v", err)
+		return
+	}
+
+	session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "✅ Hype button attached to the standup!",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+}
+
+func (h *BotHanlder) handleHypeClick(session *discordgo.Session, intr *discordgo.InteractionCreate) {
+	// Get the name of the person who clicked it
+	clickerName := intr.Member.User.Username
+	if intr.Member.Nick != "" {
+		clickerName = intr.Member.Nick
+	}
+
+	session.InteractionRespond(intr.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("🎉 **%s** is cheering on this update! Keep up the great work! 🚀", clickerName),
+		},
+	})
+}
+
 func (h *BotHanlder) sendTimezoneMenu(session *discordgo.Session, intr *discordgo.InteractionCreate, standupID uint) {
     userID := utils.ExtractUserID(intr)
 

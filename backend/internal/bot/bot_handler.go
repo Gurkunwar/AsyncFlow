@@ -64,10 +64,16 @@ func (h *BotHanlder) OnInteraction(session *discordgo.Session, intr *discordgo.I
 			h.sendTimezoneMenu(session, intr, 0)
 		case "delete-my-data":
 			h.handleDeleteMyData(session, intr)
+		case "add-hype-button":
+			h.handleAddHypeButton(session, intr)
 		}
+
 	case discordgo.InteractionMessageComponent:
 		if intr.MessageComponentData().CustomID == "select_tz" {
 			h.handleTimezoneSelection(session, intr)
+		}
+		if intr.MessageComponentData().CustomID == "btn_hype" {
+			h.handleHypeClick(session, intr)
 		}
 	}
 }
@@ -139,8 +145,12 @@ func (h *BotHanlder) HandleGuildCreate(session *discordgo.Session, guildCreate *
 	}
 
 	perms, err := session.UserChannelPermissions(session.State.User.ID, targetChannelID)
-	if err == nil && (perms&discordgo.PermissionSendMessages == 0 || perms&discordgo.PermissionViewChannel == 0) {
-		log.Printf("⏭️ Skipping welcome message in %s: Missing Send/View permissions.", guildCreate.Guild.Name)
+	if err != nil || 
+		perms&discordgo.PermissionViewChannel == 0 || 
+		perms&discordgo.PermissionSendMessages == 0 || 
+		perms&discordgo.PermissionEmbedLinks == 0 {
+		
+		log.Printf("⏭️ Skipping welcome message in %s: Missing Send, View, or Embed permissions.", guildCreate.Guild.Name)
 		return
 	}
 
